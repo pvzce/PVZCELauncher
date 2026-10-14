@@ -1,0 +1,134 @@
+name: PVZCE Android APK
+
+on:
+  push:
+    branches: [dev/pvzl-generic-java-20261014-01]
+    paths-ignore: ['**/*.md']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pvzce-apk-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.repository == 'pvzce/PVZCELauncher'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Configure writable build caches
+        shell: bash
+        run: |
+          printf 'GRADLE_USER_HOME=%s/gradle\nANDROID_USER_HOME=%s/android-user\n' \
+            "$RUNNER_TEMP" "$RUNNER_TEMP" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/gradle" "$RUNNER_TEMP/android-user"
+
+      - name: Set up build JDK 17
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Install the project's Android toolchain
+        shell: bash
+        run: |
+          sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          test -x "$sdkmanager"
+          mkdir -p "$ANDROID_USER_HOME"
+          # Ignore yes's SIGPIPE, while retaining sdkmanager's exit status.
+          set +o pipefail
+          yes | "$sdkmanager" --licenses > "$RUNNER_TEMP/android-licenses.log"
+          set -o pipefail
+          "$sdkmanager" --sdk_root="$ANDROID_HOME" \
+            'platforms;android-35' 'build-tools;35.0.0' \
+            'ndk;27.0.12077973' 'cmake;3.22.1'
+
+      - name: Check PVZCE configuration and input contracts
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          bash tools/check_pvzce_profile.sh | tee artifacts/pvzce-preflight.txt
+          bash tools/check_generic_java.sh | tee artifacts/generic-launch-checks.txt
+          python3 tools/audit_generic_launcher.py | tee artifacts/source-audit.txt
+          git diff --check
+
+      - name: Test, check style and build both arm64 development APKs
+        shell: bash
+        run: |
+          bash gradlew :FCL:testFordebugUnitTest \
+            --tests com.tungsten.fcl.generic.JavaLaunchSpecTest \
+            :FCL:checkstyle :FCL:assembleDebug :FCL:assembleFordebug \
+            -Darch=arm64 --no-daemon --console=plain --max-workers=2 \
+            2>&1 | tee "$RUNNER_TEMP/pvzce-build.log"
+
+      - name: Verify APK identities, manifests and development signatures
+        shell: bash
+        run: |
+          analyzer="$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer"
+          signer="$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          aapt="$ANDROID_HOME/build-tools/35.0.0/aapt2"
+          for variant in debug fordebug; do
+            apk=$(find "FCL/build/outputs/apk/$variant" -maxdepth 1 -type f -name '*.apk' -print -quit)
+            test -n "$apk"
+            if [ "$variant" = debug ]; then
+              expected=com.pvzce.pvzl
+            else
+              expected=com.pvzce.pvzl.debug
+            fi
+            test "$("$analyzer" manifest application-id "$apk")" = "$expected"
+            "$analyzer" manifest print "$apk" > "artifacts/$variant-AndroidManifest.xml"
+            "$signer" verify --verbose --print-certs "$apk" > "artifacts/$variant-signature.txt"
+            "$aapt" dump badging "$apk" > "artifacts/$variant-badging.txt"
+            cp "$apk" artifacts/
+          done
+          python3 tools/audit_built_manifests.py \
+            artifacts/debug-AndroidManifest.xml artifacts/fordebug-AndroidManifest.xml \
+            | tee artifacts/apk-manifest-audit.txt
+          printf 'Repository: %s\nCommit: %s\nRun: %s/%s/actions/runs/%s\nABI: arm64-v8a\nSigning: Android Debug (not a release)\n' \
+            "$GITHUB_REPOSITORY" "$GITHUB_SHA" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" \
+            > artifacts/BUILD_INFO.txt
+          cp -R FCL/build/test-results/testFordebugUnitTest artifacts/unit-test-results
+          (
+            cd artifacts
+            sha256sum -- *.apk > SHA256SUMS
+          )
+
+      - name: Upload downloadable APKs and verification records
+        id: upload
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: PVZCE-Launcher-arm64-${{ github.sha }}
+          path: artifacts/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+
+      - name: Link the download in the run summary
+        shell: bash
+        env:
+          ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
+        run: |
+          printf '### PVZCE development APKs\n\n[Download APKs and verification records](%s)\n\nSource: `%s`\n\nThese builds are not Android game compatibility certification.\n' \
+            "$ARTIFACT_URL" "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload diagnostics if the build fails
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: PVZCE-build-diagnostics-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/pvzce-build.log
+            FCL/build/reports/
+            FCL/build/test-results/
+            artifacts/*.txt
+          if-no-files-found: warn
+          retention-days: 7

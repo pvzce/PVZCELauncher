@@ -2,6 +2,8 @@
 
 这是基于 FCL-Team/FoldCraftLauncher 的开发分支实现，不是正式发布。原项目源码、许可证和作者归属保留。这里不提供游戏 JAR、虚构主类或游戏下载链接。
 
+面向 `pvzce/pvzce` 的专用预设、游戏扩展目录和新增输入入口见 [PVZCE 游戏适配](PVZCE_GAME_SUPPORT.md)。
+
 ## 使用
 
 1. 安装开发 APK 后从桌面打开 **PVZCE Launcher**。首次进入直接显示通用配置页，不需要 Minecraft 账户、版本 JSON、下载器或整合包。
@@ -12,7 +14,7 @@
 6. 点击 **Save configuration** 持久化，或 **Validate and launch** 校验并启动。配置只保存于该包的 SharedPreferences。
 7. 游戏窗口提供触摸鼠标、鼠标移动/滚轮/左右键、硬件键盘和 Esc/Enter/Space 按钮；指针捕获时触摸发送相对位移。Log 可显示日志，Exit 可结束整个内嵌 JVM 进程。Java 退出后显示退出码和日志路径；关闭后重新打开启动器才能启动下个会话。
 
-软件键盘、完整可编辑触屏控制器、手柄映射和 AWT 专用菜单仍保留在上游源码中，本独立入口目前没有接入这些完整交互界面。当前入口侧重 GLFW/LWJGL 路径；Cacio/AWT 支持参数与 SDL surface/JNI 桥保留，但未做 Android 实机兼容验证。宿主 JVM 在同一进程内运行，不能承诺 Activity/进程被系统回收后的会话恢复。
+独立窗口已增加系统输入法文字提交对话框（BMP 中文等字符）、工具/节奏虚拟键、左右键切换与滚轮。完整可编辑触屏控制器、手柄映射和 AWT 专用菜单仍保留在上游源码中，目前没有接入这些完整交互界面。当前入口侧重 GLFW/LWJGL 路径；Cacio/AWT 支持参数与 SDL surface/JNI 桥保留，但未做 Android 实机兼容验证。宿主 JVM 在同一进程内运行，不能承诺 Activity/进程被系统回收后的会话恢复。
 
 ## 架构
 

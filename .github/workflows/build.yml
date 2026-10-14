@@ -14,6 +14,8 @@ on:
 
 jobs:
   build:
+    # PVZCE has a separate development-only workflow without upstream release secrets.
+    if: github.repository == 'FCL-Team/FoldCraftLauncher'
     name: Build for ${{matrix.arch}}
     strategy:
       matrix:

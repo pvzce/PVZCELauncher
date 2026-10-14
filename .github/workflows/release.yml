@@ -7,10 +7,12 @@ on:
 
 jobs:
   build:
+    if: github.repository == 'FCL-Team/FoldCraftLauncher'
     uses: ./.github/workflows/build.yml
     secrets: inherit
 
   release:
+    if: github.repository == 'FCL-Team/FoldCraftLauncher'
     needs: build
     runs-on: ubuntu-latest
     steps:

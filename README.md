@@ -1,122 +1,64 @@
-# PVZCE Launcher — 通用 Java / LWJGL 开发分支
+# PVZCE Launcher
 
-本分支提供独立 Java/JAR/classpath 启动入口，默认隔离 Minecraft 账户、下载、整合包及更新入口。不会提供游戏文件或主类猜测。
+为 [PVZCE（pvzce/pvzce）](https://github.com/pvzce/pvzce) 提供 Android Java / LWJGL 运行入口，基于 [FoldCraftLauncher](https://github.com/FCL-Team/FoldCraftLauncher) 改造。
 
-- [配置、架构、包名共存与许可说明](docs/PVZCE_GENERIC_LAUNCHER.md)
-- [任务一实际交接与验证限制](docs/PVZCE_TASK1_HANDOFF.md)
+目前提供开发测试包：已实现 PVZCE 启动预设、扩展内容导入和基础输入适配，**尚未完成真实 Android 设备上的游戏兼容性验证**。启动器不附带游戏 JAR 或原版 PvZ 素材。
 
-任务二已构建 arm64 debug/fordebug APK，并验证编译、native 构建、签名及实际 Manifest；未验证 Android 安装、渲染或真实游戏兼容性。完整单元测试 33 项中有 2 项既有控制布局金样失败，通用启动配置 7 项通过。详见 [任务二实际构建与验证报告](docs/PVZCE_TASK2_VERIFICATION.md)。下方保留原项目说明、归属与许可清单；其中 Minecraft 功能描述不代表本分支默认启用。
+## 下载开发 APK
 
----
+打开 [GitHub Actions · PVZCE Android APK](https://github.com/pvzce/PVZCELauncher/actions/workflows/pvzce-build.yml)，选择成功的运行，在页面底部 **Artifacts** 下载 `PVZCE-Launcher-arm64-<完整提交 SHA>`，解压后安装 APK。下载通常需要登录 GitHub；artifact 保留 14 天，过期后可重新运行工作流。
 
-<div align="center">
-    <img width="75" src="/FCL/src/main/res/drawable/img_app.png"></img>
-</div>
+| APK | applicationId | 用途 |
+| --- | --- | --- |
+| `PVZCE-Launcher-debug-…-arm64-v8a.apk` | `com.pvzce.pvzl` | 常规开发测试包 |
+| `PVZCE-Launcher-fordebug-…-arm64-v8a.apk` | `com.pvzce.pvzl.debug` | 可与前一包并存的测试包 |
 
-<h1 align="center">Fold Craft Launcher</h1>
+当前工作流构建 **arm64-v8a**，适合对应 ABI 的 Android 设备，minSdk 26（Android 8.0）。两种包均使用标准 Android Debug 签名，不是正式发行版；不同构建环境生成的 Debug 证书可能不同，不能保证直接覆盖之前手动构建的包。卸载会删除应用私有游戏数据，请先通过应用 DocumentsProvider 备份。
 
-<div align="center">
+下载包附带 `SHA256SUMS`、最终 Manifest、预检/签名结果和 `BUILD_INFO.txt`；请用其中的源码 SHA 识别构建。未成功的运行不会被标为可用 APK。
 
-[![Android CI](https://github.com/FCL-Team/FoldCraftLauncher/actions/workflows/build.yml/badge.svg)](https://github.com/FCL-Team/FoldCraftLauncher/actions/workflows/build.yml)
-![Downloads](https://img.shields.io/github/downloads/FCL-Team/FoldCraftLauncher/total?style=flat-square&color=f18cb9)
-![Release](https://img.shields.io/github/v/release/FCL-Team/FoldCraftLauncher?style=flat-square&color=f18cb9)
+## 启动 PVZCE
 
-[![Discord](https://img.shields.io/badge/Discord-red?logo=discord&logoColor=white)](https://discord.gg/ffhvuXTwyV)
-[![QQ](https://img.shields.io/badge/QQ-green)](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=LwxydGEvBZJnn09sXOjkQo9tuuLcYwx5&authKey=seyY5pPUCIHMWS5FqVryq926T0G2GarSXetpxxV9DJxBVt%2FPcg1vxN%2F%2FXpsCowyk&noverify=0&group_code=762054349)
-[![Sponsor](https://img.shields.io/badge/sponsor-blue?logo=GitHub-Sponsors)](https://afdian.com/@tungs)
+1. 打开启动器，点击 **Apply PVZCE preset**。它选择 Android JRE 25、patched LWJGL 3.4.1、游戏自带的 KnotClient 入口和应用私有游戏目录。VirGL 是可调整的渲染起点，PVZCE 需要 OpenGL 3.2 core。
+2. 从真实 PVZCE 工程运行 `./gradlew :pvzce-game:shadowJar` 得到游戏 fat JAR，再用 **Import JAR / dependency files** 导入。预设会检查必要的游戏/加载器条目，不需要 Minecraft 账户或版本 JSON。
+3. 点击 **Install / repair selected bundled runtime**。JRE、LWJGL 等从 APK 内置资产安装，不会下载游戏。
+4. 根据需要导入内容：模组用 **Import PVZCE mods (JAR)**；资源包、数据包用对应 **directory** 按钮，选择直接包含 `assets/` 或 `data/` 的目录。当前游戏读取目录包，不把 ZIP 当作已启用的包。代码模组需要重启，资源/数据包由游戏界面启用与重载。
+5. 点击 **Validate and launch**。`--enable-native-access=ALL-UNNAMED` 和唯一的 `--gameDir` 由预设生成；额外 JVM/程序参数每行填写一个完整参数。
 
-</div>
+游戏数据保存在当前包的 `files/games/pvzce`：`mods/`、`resourcepacks/`、`datapacks/`、`config/`、`saves/`。可通过既有 DocumentsProvider 管理和备份；导入不覆盖同名内容。
 
-🌍 **语言**  
-简体中文 | [English](./README_EN.md) | [Русский язык](./README_RU.md)
+## 游戏操作与功能边界
 
-> 你说得对，但是[「FoldCraft Launcher」](https://github.com/FCL-Team/FoldCraftLauncher)是由[FCL-Team](https://github.com/FCL-Team)基于[HMCL](https://github.com/HMCL-dev/HMCL)的核心功能，使用[PojavLauncher](https://github.com/PojavLauncherTeam/PojavLauncher)后端开发的[Minecraft](https://www.minecraft.net/) [Java](https://baike.baidu.com/item/Java%E5%B9%B3%E5%8F%B0/3793459)版启动器。启动器运行在一个被称作[「安卓」](https://baike.baidu.com/item/android/60243)的系统，在这里，被系统选中的人将被授予「JVM」，导引[Java](https://baike.baidu.com/item/Java%E5%B9%B3%E5%8F%B0/3793459)之力。你将扮演一位名为「小白」的神秘用户，在自由的使用中安装不同版本、各有千秋独特的[模组](https://baike.baidu.com/item/%E6%A8%A1%E7%BB%84/58377440)，和它们一起运行，找出崩溃闪退的原因，同时逐步发掘「xxException:」的真相。
+- 触摸模拟鼠标；捕获指针时发送相对移动。**Keys** 展开/隐藏按键面板，支持左右键切换、滚轮、Esc/Enter/Space、工具 1–5，以及节奏模式默认键 S D F J K L 的多指按住/松开。
+- 聊天/命令：先用 **Chat T** 或 **/** 打开游戏文本框，再点 **Text** 用系统输入法输入文字，发送后用 **Enter** 提交。支持中文等 BMP 字符；现有 JNI char 桥不支持 emoji 等补充平面字符。硬件键盘保留。
+- 保留 Android JVM/JRE、LWJGL、渲染、音频、SDL/Cacio 后端和通用 JAR/classpath 模式；可取消 PVZCE profile 后自行配置其他 Java 程序。
+- Minecraft 认证、版本/资产下载、模组/整合包平台、更新及旧 Minecraft 启动入口仍默认禁用，源码保留。PVZCE 的加载器与扩展内容独立于这些服务。
+- 尚未完成：实机安装/渲染/音频/输入生命周期验证、其他 ABI 构建、完整可编辑控制器、手柄映射、AWT 专用菜单。游戏的桌面 Wayland 触控不适用于这里的 Android 桥接。
 
-> ✨ **项目简介**  
-> 「Fold Craft Launcher」是由FCL团队开发的Android平台Minecraft: Java Edition启动器。基于[HMCL](https://github.com/HMCL-dev/HMCL)的核心功能，使用[Amethyst-Android](https://github.com/AngelAuraMC/Amethyst-Android)后端，让您能在移动设备上畅玩Java版MC，支持模组加载与全版本运行。
+## 构建与验证
 
----
+构建启动器使用 **JDK 17**；游戏运行使用内置 Android **JRE 25**，两者用途不同。使用项目 Gradle wrapper，SDK Platform 35、Build Tools 35.0.0、NDK 27.0.12077973、CMake 3.22.1：
 
-## 🚀 核心特性
+```bash
+bash tools/check_pvzce_profile.sh
+bash tools/check_generic_java.sh
+python3 tools/audit_generic_launcher.py
+bash gradlew :FCL:testFordebugUnitTest --tests com.tungsten.fcl.generic.JavaLaunchSpecTest \
+  :FCL:checkstyle :FCL:assembleDebug :FCL:assembleFordebug \
+  -Darch=arm64 --no-daemon --console=plain --max-workers=2
+```
 
-✅ **全版本支持**  
-- 原生支持 Minecraft 全版本（包括最新快照）
-- 模组加载器支持：Forge/NeoForge/LiteLoader/OptiFine/Fabric/Quilt/Cleanroom...
+GitHub 工作流执行上述相关检查，构建两种 APK，并检查最终 APK Manifest 和签名。它不使用上游发布密钥、不创建 Release，也不上传游戏文件。此次开发分支推送触发一次构建，合并 main 不重复触发；以后可在 Actions 页面 **Run workflow** 手动构建。
 
-⚙️ **功能亮点**  
-- 内置多版本 Java 运行时（Java 8/17/21/25）同时支持导入Java
-- 虚拟鼠标与自定义按键映射
-- 支持 FCL/ZalithLauncher2 控制布局互转，导入 ZL2 布局自动转换
-- 光影支持（需VirGL/Zink/MG渲染器）
-- 动态资源管理（模组/整合包/材质/光影/存档）
-- 个性化主题定制（背景/颜色方案）
-- 支持[渲染器插件化](https://github.com/ShirosakiMio/FCLRendererPlugin)
+**完整测试集并非全绿**：前次完整运行中有两项既有 controlconverter 金样差异尚待解决；工作流运行通用配置相关单元测试与独立预检，不把它们冒充完整测试集。静态检查和编译成功也不代表真实 PVZCE 游戏已在 Android 上运行成功。
 
----
+## 架构、交接与许可
 
-## 🎮 使用截图
+- [PVZCE 功能映射、配置、验证与剩余问题](docs/PVZCE_GAME_SUPPORT.md)
+- [通用入口、包名共存与 JNI 架构](docs/PVZCE_GENERIC_LAUNCHER.md)
+- [任务一历史交接](docs/PVZCE_TASK1_HANDOFF.md) · [任务二历史验证报告](docs/PVZCE_TASK2_VERIFICATION.md)
+- [原项目说明、完整致谢及第三方清单](docs/UPSTREAM_README_zh-CN.md)
 
-<div align="center">
-  <img src="/.github/images/ui_main_light.jpg" width="30%" alt="浅色界面">
-  <img src="/.github/images/ui_main_dark.jpg" width="30%" alt="深色界面">
-  <img src="/.github/images/game.jpg" width="30%" alt="游戏画面">
-</div>
+启动器遵循 [GPL-3.0](LICENSE)，保留 FCL-Team、HMCL、Amethyst/Pojav 等原有归属与第三方许可。保留 `com.tungsten.fcl` 等 namespace/JNI 类名以维持 ABI，安装包身份已改为 PVZCE。
 
----
-
-## 📜 开源协议
-
-本项目采用 **[GPL-3.0 License](https://www.gnu.org/licenses/gpl-3.0.html)** 授权
-
----
-
-## 🌍 翻译
-
-欢迎参与翻译！本项目通过 [Weblate](https://hosted.weblate.org/projects/foldcraftlauncher/) 管理本地化，无需安装任何工具，直接在网页上贡献翻译即可。
-
----
-
-## 🤝 贡献与致谢
-### 贡献者墙
-<a href="https://github.com/FCL-Team/FoldCraftLauncher/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=FCL-Team/FoldCraftLauncher" />
-</a>
-
-### 相关项目
-- [HMCL](https://github.com/HMCL-dev/HMCL)：核心功能来源（fclcore 移植自 `org.jackhuang.hmcl`）
-- [Boat 及其相关项目](https://github.com/AOF-Dev/Boat)
-- [Amethyst-Android](https://github.com/AngelAuraMC/Amethyst-Android)（PojavLauncher Android fork）：JVM 启动与渲染后端
-- [authlib-injector](https://github.com/yushijinhun/authlib-injector)
-- [EasyTier](https://github.com/EasyTier/EasyTier)：局域网联机组网底层
-- [Terracotta](https://github.com/burningtnt/Terracotta)：基于 EasyTier 的联机方案（Terracotta 模块 JNI 封装）
-- [TouchController](https://github.com/TouchController/TouchController)：触摸控制器依赖
-- [NG-GL4ES](https://github.com/ShirosakiMio/NG-GL4ES)：gl4es fork 渲染器（构建产物以 aar 随 FCL 发布）
-- [FCLRendererPlugin](https://github.com/ShirosakiMio/FCLRendererPlugin)：渲染器插件扩展
-- [FCLDriverPlugin](https://github.com/FCL-Team/FCLDriverPlugin)：驱动（Turnip 等）插件扩展
-
-### 依赖
-
-- [Amethyst-Android](https://github.com/AngelAuraMC/Amethyst-Android)（PojavLauncher Android fork）: [GPL-3.0]
-- Android Support
-  Libraries: [Apache License 2.0](https://android.googlesource.com/platform/prebuilts/maven_repo/android/+/master/NOTICE.txt)
-- [GL4ES](https://github.com/ptitSeb/gl4es): [MIT License](https://github.com/ptitSeb/gl4es/blob/master/LICENSE)
-- [NG-GL4ES](https://github.com/ShirosakiMio/NG-GL4ES)（gl4es fork，Krypton Wrapper 衍生，FCL 以 aar 形式使用预构建产物）
-- [ANGLE](https://chromium.googlesource.com/angle/angle): [BSD-3 License](https://chromium.googlesource.com/angle/angle/+/refs/heads/main/LICENSE)
-- [OpenJDK](https://github.com/AngelAuraMC/openjdk-multiarch-jdk8u): [GNU GPLv2 License](https://openjdk.java.net/legal/gplv2+ce.html)（运行时由 FCL-Team 自建并随版本发布）
-- [LWJGL3](https://github.com/LWJGL/lwjgl3)（官方 jar + Android 源码补丁）: [BSD-3 License](https://github.com/LWJGL/lwjgl3/blob/master/LICENSE.md)
-- [LWJGLX](https://github.com/AngelAuraMC/lwjglx) (LWJGL2 API compatibility layer for LWJGL3):
-  unknown license
-- [Mesa 3D Graphics Library](https://gitlab.freedesktop.org/mesa/mesa): [MIT License](https://docs.mesa3d.org/license.html)
-- [SPIRV-Cross](https://github.com/KhronosGroup/SPIRV-Cross)（SPIR-V 反射/转换，natives 以 aar 打包）: [Apache License 2.0](https://github.com/KhronosGroup/SPIRV-Cross/blob/master/LICENSE)
-- [bhook](https://github.com/bytedance/bhook) (Used for exit code
-  trapping): [MIT license](https://github.com/bytedance/bhook/blob/main/LICENSE).
-- [libepoxy](https://github.com/anholt/libepoxy): [MIT License](https://github.com/anholt/libepoxy/blob/master/COPYING).
-- [virglrenderer](https://github.com/AngelAuraMC/virglrenderer): [MIT License](https://gitlab.freedesktop.org/virgl/virglrenderer/-/blob/master/COPYING).
-- [OpenAL-Soft](https://github.com/kcat/openal-soft): [GNU LGPLv2.1](https://github.com/kcat/openal-soft/blob/master/COPYING)
-    - [oboe](https://github.com/google/oboe): [Apache License 2.0](https://github.com/google/oboe/blob/main/LICENSE).
-    - [pfffft](https://bitbucket.org/jpommier/pffft/src/master/): [ARR]
-- [EasyTier](https://github.com/EasyTier/EasyTier)（Terracotta 模块内嵌组网底层）: [LGPL-3.0](https://github.com/EasyTier/EasyTier/blob/main/LICENSE)
-- [Terracotta](https://github.com/burningtnt/Terracotta)（`net.burningtnt.terracotta` JNI 封装）: [AGPL-3.0](https://github.com/burningtnt/Terracotta/blob/main/LICENSE)
-- [TouchController](https://github.com/TouchController/TouchController)（触摸控制器）: [LGPL-3.0](https://github.com/TouchController/TouchController/blob/main/LICENSE)
-- [discord-rpc](https://github.com/discord/discord-rpc)（libdiscord-rpc.so）: [MIT License](https://github.com/discord/discord-rpc/blob/master/LICENSE)
-- [control-converter](https://github.com/NingZeStudio/control-converter)（FCL↔ZL2 控制布局转换，以 cc.py 为语义基准的内置纯 Kotlin 实现，不再打包 `libcc.so`）: [MIT License](https://opensource.org/licenses/MIT)
+游戏及其 Fabric 派生代码、字体、依赖和素材分别遵循游戏仓库的 [LICENSE](https://github.com/pvzce/pvzce/blob/master/LICENSE) 与 [THIRD-PARTY.md](https://github.com/pvzce/pvzce/blob/master/THIRD-PARTY.md)。启动器可导入内容不表示授予其分发许可；启动器原有 LWJGLX 等许可未明项仍需正式分发前核查。

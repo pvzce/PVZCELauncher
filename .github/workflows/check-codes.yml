@@ -12,6 +12,8 @@ on:
 
 jobs:
   build:
+    # PVZCE's dedicated APK workflow runs the related checks itself.
+    if: github.repository == 'FCL-Team/FoldCraftLauncher'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
