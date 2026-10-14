@@ -11,6 +11,7 @@ import java.util.jar.JarFile;
 /** An Android-independent, token-based Java launch configuration. No version JSON or account. */
 public final class JavaLaunchSpec implements Serializable {
     private static final long serialVersionUID = 1L;
+    private static final String MAIN_CLASS_PATTERN = "[\\p{javaJavaIdentifierStart}][\\p{javaJavaIdentifierPart}]*(\\.[\\p{javaJavaIdentifierStart}][\\p{javaJavaIdentifierPart}]*)*";
     public final String jar;
     public final List<String> classpath;
     public final String mainClass;
@@ -66,16 +67,26 @@ public final class JavaLaunchSpec implements Serializable {
                     if (entry == null || entry.trim().isEmpty()) {
                         throw new IOException("Executable JAR has no Main-Class; specify a main class");
                     }
+                    if (!entry.trim().matches(MAIN_CLASS_PATTERN)) {
+                        throw new IOException("Invalid Main-Class in JAR manifest: " + entry);
+                    }
                 }
             }
         }
         if (mainClass.isEmpty() && (jar.isEmpty() || !classpath.isEmpty())) {
             throw new IOException("Classpath needs a main class; JAR mode cannot add classpath entries");
         }
-        if (!mainClass.isEmpty() && !mainClass.matches("[\\p{javaJavaIdentifierStart}][\\p{javaJavaIdentifierPart}]*(\\.[\\p{javaJavaIdentifierStart}][\\p{javaJavaIdentifierPart}]*)*")) {
+        if (!mainClass.isEmpty() && !mainClass.matches(MAIN_CLASS_PATTERN)) {
             throw new IOException("Invalid fully qualified main class");
         }
-        for (String path : classpath) readable(path, work);
+        for (String path : classpath) {
+            File entry = readable(path, work);
+            if (!entry.isDirectory()) {
+                try (JarFile archive = new JarFile(entry)) {
+                    archive.size();
+                }
+            }
+        }
         for (String arg : jvmArgs) {
             token(arg);
             // The entry point is assembled below, not smuggled through JVM options/argfiles.
@@ -84,7 +95,9 @@ public final class JavaLaunchSpec implements Serializable {
                     || arg.equals("-m") || arg.startsWith("--module") || arg.startsWith("-p")
                     || arg.equals("-version") || arg.equals("--version")
                     || arg.equals("-help") || arg.equals("--help") || arg.equals("-h")
-                    || arg.startsWith("-Xbootclasspath") || arg.equals("--disable-@files")) {
+                    || arg.startsWith("-Xbootclasspath") || arg.equals("--disable-@files")
+                    || arg.equals("--") || arg.equals("--dry-run") || arg.equals("--list-modules")
+                    || arg.equals("--validate-modules") || arg.startsWith("--source")) {
                 throw new IOException("Unsupported JVM option: " + arg + "; put entry points in their fields");
             }
         }

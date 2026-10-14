@@ -50,6 +50,7 @@ public class GenericJvmActivity extends FCLActivity implements TextureView.Surfa
     private float lastX;
     private float lastY;
     private boolean grabbed;
+    private boolean firstLog = true;
 
     @SuppressLint("ClickableViewAccessibility")
     @Override
@@ -184,10 +185,11 @@ public class GenericJvmActivity extends FCLActivity implements TextureView.Surfa
     }
 
     @Override
-    public void onLog(String log) {
+    public synchronized void onLog(String log) {
         if (bridge != null) {
-            try (FileWriter writer = new FileWriter(bridge.getLogPath(), true)) {
+            try (FileWriter writer = new FileWriter(bridge.getLogPath(), !firstLog)) {
                 writer.write(log);
+                firstLog = false;
             } catch (IOException ignore) {
                 // The on-screen log remains available when file output fails.
             }

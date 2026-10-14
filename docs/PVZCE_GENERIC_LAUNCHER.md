@@ -59,3 +59,9 @@ DocumentsProvider 和 crash init provider 也使用 `${applicationId}`。所有�
 - `python tools/audit_generic_launcher.py`：源码 XML、变体 package/provider、旧组件禁用、默认路径、feature gate 和 JNI 名称静态审计。**不是最终 merged Manifest 检查。**
 - `python tools/check_changed_java_style.py`：使用已缓存 Checkstyle 10.12.5 检查改动 Java，提交后设置 `PVZCE_STYLE_BASE` 为本分支基准 SHA。
 - Android 相关命令与本次真实结果见交接文档。测试 fixture 不是用户游戏，云端 Java 验证不是 Android native/JVM/图形验证。
+
+## 任务二验证更新
+
+已实际完成 arm64 debug/fordebug APK 构建、APK Signature Scheme v2 验证及 APK 内 Manifest 解码审计。`tools/audit_built_manifests.py` 可检查真实合并或解码后的 Manifest，包含 AndroidX 自动生成的 provider 与动态接收器签名权限。通用启动配置新增 7 项工程单元测试，独立行为测试增至 43 项；损坏 classpath/JAR Manifest 主类与入口冲突参数现在会被提前拒绝。每次 Java 会话重新开始日志，避免混入上次会话内容。
+
+完整工程单元测试仍有 2 项未改动控制布局转换金样失败；无可用的 Android 设备执行证据，不能宣称完成实机共存、图形、输入或游戏兼容性测试。架构、许可与高级输入界面限制继续适用。完整命令、失败原因、产物哈希与交接见 [任务二报告](PVZCE_TASK2_VERIFICATION.md)。

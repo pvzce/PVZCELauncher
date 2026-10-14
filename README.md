@@ -5,7 +5,7 @@
 - [配置、架构、包名共存与许可说明](docs/PVZCE_GENERIC_LAUNCHER.md)
 - [任务一实际交接与验证限制](docs/PVZCE_TASK1_HANDOFF.md)
 
-当前 Android 构建因 SDK 缺失尚未完成，没有可宣称已验证的 APK。下方保留原项目说明、归属与许可清单；其中 Minecraft 功能描述不代表本分支默认启用。
+任务二已构建 arm64 debug/fordebug APK，并验证编译、native 构建、签名及实际 Manifest；未验证 Android 安装、渲染或真实游戏兼容性。完整单元测试 33 项中有 2 项既有控制布局金样失败，通用启动配置 7 项通过。详见 [任务二实际构建与验证报告](docs/PVZCE_TASK2_VERIFICATION.md)。下方保留原项目说明、归属与许可清单；其中 Minecraft 功能描述不代表本分支默认启用。
 
 ---
 

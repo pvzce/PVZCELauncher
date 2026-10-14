@@ -13,6 +13,9 @@ groups = {'com.puppycrawl.tools', 'info.picocli', 'org.antlr', 'commons-beanutil
           'org.javassist', 'org.slf4j', 'com.google.code.findbugs', 'org.checkerframework',
           'com.google.errorprone', 'com.google.j2objc'}
 jars = [str(p) for p in cache.rglob('*.jar') if p.relative_to(cache).parts[0] in groups]
+# Checkstyle 10.12.5's parser was generated with ANTLR 4.13.1. Other cached
+# Android/Kotlin tools may also resolve 4.11.x; do not load that runtime first.
+jars = [jar for jar in jars if '/org.antlr/antlr4-runtime/' not in jar or '/antlr4-runtime/4.13.1/' in jar]
 if not any('checkstyle-10.12.5.jar' in jar for jar in jars):
     raise SystemExit('Checkstyle 10.12.5 is not cached; run the normal Gradle Checkstyle task to resolve it first.')
 files = subprocess.check_output(['git', 'diff', '--name-only', os.environ.get('PVZCE_STYLE_BASE', 'HEAD')], cwd=repo, text=True).splitlines()

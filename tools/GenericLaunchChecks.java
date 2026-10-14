@@ -87,10 +87,21 @@ public class GenericLaunchChecks {
         Path invalid = root.resolve("invalid.jar");
         Files.writeString(invalid, "not a jar");
         rejects(spec(invalid.toString(), Collections.emptyList(), "Echo", jvm, args), "invalid jar");
+        rejects(spec("", Collections.singletonList(invalid.toString()), "Echo", jvm, args), "invalid classpath archive");
+        Manifest invalidEntry = new Manifest();
+        invalidEntry.getMainAttributes().put(Attributes.Name.MANIFEST_VERSION, "1.0");
+        invalidEntry.getMainAttributes().put(Attributes.Name.MAIN_CLASS, "bad/main");
+        Path invalidMain = root.resolve("invalid-main.jar");
+        try (JarOutputStream output = new JarOutputStream(Files.newOutputStream(invalidMain), invalidEntry)) {
+            output.putNextEntry(new JarEntry("Echo.class"));
+            Files.copy(root.resolve("Echo.class"), output);
+            output.closeEntry();
+        }
+        rejects(spec(invalidMain.toString(), Collections.emptyList(), "", jvm, args), "invalid manifest entry");
         rejects(spec("", Collections.singletonList(root.toString()), "", jvm, args), "classpath without main");
         rejects(spec(jar.toString(), Collections.singletonList(root.toString()), "", jvm, args), "jar plus ignored classpath");
         rejects(spec(jar.toString(), Collections.emptyList(), "bad/main", jvm, args), "invalid main");
-        for (String option : Arrays.asList("-jar", "-cp", "--class-path=x", "@options", "Echo", "-version", "--module=x", "-Xbootclasspath/a:x")) {
+        for (String option : Arrays.asList("-jar", "-cp", "--class-path=x", "@options", "Echo", "-version", "--module=x", "-Xbootclasspath/a:x", "--", "--dry-run", "--list-modules")) {
             rejects(spec(jar.toString(), Collections.emptyList(), "Echo", Collections.singletonList(option), args), "injected entry/argfile: " + option);
         }
         rejects(spec(jar.toString(), Collections.emptyList(), "Echo", JavaLaunchSpec.lines("-Xmx512m\n"), args), "blank JVM line");
