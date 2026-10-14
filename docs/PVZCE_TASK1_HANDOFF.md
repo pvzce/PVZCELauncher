@@ -5,8 +5,8 @@
 - 默认分支与基准：`main`，`bfb304fc8b4b3b1bd276f82f22fb4a9bcb2a5f72`
 - 执行时账号：`CSneko`；API 实际核实 pull/push/admin；`fork=true`，parent 为 `FCL-Team/FoldCraftLauncher`。
 - 原 smoke 分支和提交没有改动；不向 upstream 写入、不创建 PR、不修改 main、不强推。
-- 实现完整 SHA：提交后补记（任务二必须以远端实际 HEAD 为准）。
-- 状态：实现、独立 Java 行为检查、源码审计与改动 Java Checkstyle 完成；Android 构建因 SDK 缺失阻塞。不是用户游戏兼容性结论。
+- 实现完整 SHA：[`03e884fbdb4dc540504ddb087a4ad6602e03eef3`](https://github.com/pvzce/PVZCELauncher/commit/03e884fbdb4dc540504ddb087a4ad6602e03eef3)，已在远端开发分支提交。当前文档随后单独补记，因此任务二须再次读取最新远端 HEAD；最新 HEAD 可是本交接文档提交，不应误认为实现丢失。
+- 状态：任务一已结束并交接；实现已提交，独立 Java 行为检查、源码审计与改动 Java Checkstyle 完成；Android 构建因 SDK 缺失阻塞。不是用户游戏兼容性结论。
 
 ## 修改
 
