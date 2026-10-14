@@ -24,7 +24,7 @@ class TouchController(
 ) {
     var client: LauncherProxyClient? = null
         private set
-    private val socketName = "FoldCraftLauncher"
+    private val socketName = context.packageName + ".touchcontroller"
 
     //handleTouchEvent
     private val pointerIdMap = SparseIntArray()

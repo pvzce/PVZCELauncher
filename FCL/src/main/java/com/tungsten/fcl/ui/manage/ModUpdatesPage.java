@@ -136,7 +136,7 @@ public class ModUpdatesPage extends FCLPage implements View.OnClickListener {
     }
 
     private void exportList() {
-        Path path = new File(Environment.getExternalStorageDirectory().getAbsolutePath() + "/FCL", "fcl-mod-update-list-" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH-mm-ss")) + ".csv").toPath();
+        Path path = new File(com.tungsten.fclauncher.utils.FCLPath.SHARE_DIR, "fcl-mod-update-list-" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH-mm-ss")) + ".csv").toPath();
 
         TaskDialog taskDialog = new TaskDialog(getContext(), TaskCancellationAction.NORMAL);
         taskDialog.setTitle(getContext().getString(R.string.button_export));

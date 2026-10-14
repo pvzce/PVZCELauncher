@@ -57,6 +57,7 @@ public class UpdateChecker {
      * 版本表中没有当前版本条目（官方下架或自定义构建）时给出提示。
      */
     public Task<?> showCurrentChangelog(Context context) {
+        if (!com.tungsten.fcl.generic.LauncherFeatures.minecraftEnabled()) return Task.runAsync(() -> {});
         if (!changelogLoading.compareAndSet(false, true)) {
             return Task.runAsync(() -> {});
         }
@@ -84,6 +85,7 @@ public class UpdateChecker {
     }
 
     public Task<?> check(Context context, boolean showBeta, boolean showAlert) {
+        if (!com.tungsten.fcl.generic.LauncherFeatures.minecraftEnabled()) return Task.runAsync(() -> {});
         if (!checking.compareAndSet(false, true)) {
             return Task.runAsync(() -> {});
         }

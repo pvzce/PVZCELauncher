@@ -34,7 +34,7 @@ public class FCLPath {
     public static String SHARE_DIR;
 
     public static String PRIVATE_COMMON_DIR;
-    public static String SHARED_COMMON_DIR = Environment.getExternalStorageDirectory().getAbsolutePath() + "/FCL/.minecraft";
+    public static String SHARED_COMMON_DIR;
 
     public static String AUTHLIB_INJECTOR_PATH;
     public static String LIB_PATCHER_PATH;
@@ -46,8 +46,8 @@ public class FCLPath {
     public static void loadPaths(Context context) {
         NATIVE_LIB_DIR = context.getApplicationInfo().nativeLibraryDir;
 
-        LOG_DIR = Environment.getExternalStorageDirectory().getAbsolutePath() + "/FCL/log";
-        CACHE_DIR = context.getCacheDir() + "/fclauncher";
+        LOG_DIR = new File(context.getFilesDir(), "logs").getAbsolutePath();
+        CACHE_DIR = context.getCacheDir() + "/pvzce";
 
         RUNTIME_DIR = context.getDir("runtime", 0).getAbsolutePath();
         JAVA_PATH = RUNTIME_DIR + "/java";
@@ -66,13 +66,14 @@ public class FCLPath {
         PLUGIN_DIR = FILES_DIR + "/plugins";
         BACKGROUND_DIR = FILES_DIR + "/background";
         SKIN_DIR = FILES_DIR + "/skin";
-        CONTROLLER_DIR = Environment.getExternalStorageDirectory().getAbsolutePath() + "/FCL/control";
-        SHARE_DIR = Environment.getExternalStorageDirectory().getAbsolutePath() + "/FCL/share";
+        CONTROLLER_DIR = new File(context.getFilesDir(), "control").getAbsolutePath();
+        SHARE_DIR = new File(context.getFilesDir(), "share").getAbsolutePath();
         File externalFilesDir = context.getExternalFilesDir(null);
         if (externalFilesDir == null) {
             externalFilesDir = new File(Environment.getExternalStorageDirectory(), "Android/data/" + context.getPackageName() + "/files");
         }
-        PRIVATE_COMMON_DIR = new File(externalFilesDir, ".minecraft").getAbsolutePath();
+        PRIVATE_COMMON_DIR = new File(context.getFilesDir(), "games").getAbsolutePath();
+        SHARED_COMMON_DIR = PRIVATE_COMMON_DIR;
 
         AUTHLIB_INJECTOR_PATH = PLUGIN_DIR + "/authlib-injector.jar";
         LIB_PATCHER_PATH = PLUGIN_DIR + "/MioLibPatcher.jar";

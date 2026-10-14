@@ -51,7 +51,7 @@
         tools:ignore="DiscouragedApi"
         tools:targetApi="33">
         <activity
-            android:name=".activity.SplashActivity"
+            android:name=".generic.GenericLauncherActivity"
             android:configChanges="keyboardHidden|orientation|screenSize|smallestScreenSize|screenLayout|keyboard|navigation|uiMode"
             android:exported="true"
             android:screenOrientation="sensorLandscape"
@@ -63,11 +63,17 @@
             </intent-filter>
         </activity>
 
+        <activity android:name=".activity.SplashActivity" android:exported="false" android:enabled="${minecraftEnabled}" />
+        <activity android:name=".generic.GenericJvmActivity" android:exported="false"
+            android:configChanges="keyboardHidden|orientation|screenSize|smallestScreenSize|screenLayout|keyboard|navigation|uiMode"
+            android:screenOrientation="sensorLandscape" />
+
         <activity-alias
             android:name=".ImportActivity"
             android:exported="true"
             android:label="@string/app_name_import"
-            android:targetActivity=".activity.SplashActivity">
+            android:targetActivity=".activity.SplashActivity"
+            android:enabled="${minecraftEnabled}">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
 
@@ -98,24 +104,29 @@
 
         <activity
             android:name=".activity.MainActivity"
+            android:enabled="${minecraftEnabled}"
             android:configChanges="keyboardHidden|orientation|screenSize|smallestScreenSize|screenLayout|keyboard|navigation|uiMode"
             android:screenOrientation="sensorLandscape" />
         <activity
             android:name=".activity.WebActivity"
+            android:enabled="${minecraftEnabled}"
             android:configChanges="keyboardHidden|orientation|screenSize|smallestScreenSize|screenLayout|keyboard|navigation|uiMode"
             android:screenOrientation="sensorLandscape" />
         <activity
             android:name=".activity.ControllerActivity"
+            android:enabled="${minecraftEnabled}"
             android:configChanges="keyboardHidden|orientation|screenSize|smallestScreenSize|screenLayout|keyboard|navigation|uiMode"
             android:screenOrientation="sensorLandscape" />
         <activity
             android:name=".activity.ShellActivity"
+            android:enabled="${minecraftEnabled}"
             android:configChanges="keyboardHidden|orientation|screenSize|smallestScreenSize|screenLayout|keyboard|navigation|uiMode"
             android:screenOrientation="sensorPortrait"
             android:windowSoftInputMode="adjustResize"
             tools:ignore="LockedOrientationActivity" />
         <activity
             android:name=".activity.JVMActivity"
+            android:enabled="${minecraftEnabled}"
             android:alwaysRetainTaskState="true"
             android:configChanges="keyboardHidden|orientation|screenSize|smallestScreenSize|screenLayout|keyboard|navigation|uiMode"
             android:launchMode="standard"
@@ -136,13 +147,13 @@
 
         <service
             android:name="com.tungsten.fclcore.download.ProcessService"
-            android:enabled="true"
+            android:enabled="${minecraftEnabled}"
             android:exported="false"
             android:foregroundServiceType="dataSync"
             android:process=":jvm" />
         <service
             android:name="com.mio.download.DownloadService"
-            android:enabled="true"
+            android:enabled="${minecraftEnabled}"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
         <service
@@ -152,10 +163,11 @@
             android:foregroundServiceType="specialUse">
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="Keep game process alive while a Minecraft session is running" />
+                android:value="Keep game process alive while a Java session is running" />
         </service>
         <service
             android:name=".terracotta.TerracottaVPNService"
+            android:enabled="${minecraftEnabled}"
             android:exported="true"
             android:foregroundServiceType="connectedDevice|dataSync"
             android:permission="android.permission.BIND_VPN_SERVICE"

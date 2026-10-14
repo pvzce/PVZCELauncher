@@ -48,7 +48,7 @@ class GameService : Service() {
     }
 
     private fun buildContentIntent(): PendingIntent {
-        val intent = Intent(this, JVMActivity::class.java).apply {
+        val intent = Intent(this, if (com.tungsten.fcl.generic.LauncherFeatures.minecraftEnabled()) JVMActivity::class.java else com.tungsten.fcl.generic.GenericJvmActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         }
         return PendingIntent.getActivity(

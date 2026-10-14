@@ -1,3 +1,14 @@
+# PVZCE Launcher — 通用 Java / LWJGL 开发分支
+
+本分支提供独立 Java/JAR/classpath 启动入口，默认隔离 Minecraft 账户、下载、整合包及更新入口。不会提供游戏文件或主类猜测。
+
+- [配置、架构、包名共存与许可说明](docs/PVZCE_GENERIC_LAUNCHER.md)
+- [任务一实际交接与验证限制](docs/PVZCE_TASK1_HANDOFF.md)
+
+当前 Android 构建因 SDK 缺失尚未完成，没有可宣称已验证的 APK。下方保留原项目说明、归属与许可清单；其中 Minecraft 功能描述不代表本分支默认启用。
+
+---
+
 <div align="center">
     <img width="75" src="/FCL/src/main/res/drawable/img_app.png"></img>
 </div>

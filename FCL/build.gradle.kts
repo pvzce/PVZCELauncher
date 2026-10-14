@@ -40,9 +40,6 @@ android {
         localProperty = Properties()
         file("${rootDir}/local.properties").inputStream().use { localProperty.load(it) }
     }
-    val pwd = System.getenv("FCL_KEYSTORE_PASSWORD") ?: localProperty?.getProperty("pwd")
-    val curseApiKey = System.getenv("CURSE_API_KEY") ?: localProperty?.getProperty("curse.api.key")
-    val oauthApiKey = System.getenv("OAUTH_API_KEY") ?: localProperty?.getProperty("oauth.api.key")
     // 命令行 -Darch 优先；local.properties 仅在命令行未指定时生效
     if (System.getProperty("arch") == null && localProperty != null && localProperty.getProperty(
             "arch",
@@ -51,29 +48,10 @@ android {
     )
         System.setProperty("arch", "arm64")
 
-    signingConfigs {
-        create("FCLKey") {
-            storeFile = file("../key-store.jks")
-            storePassword = pwd
-            keyAlias = "FCL-Key"
-            keyPassword = pwd
-        }
-        create("FCLDebugKey") {
-            storeFile = file("../debug-key.jks")
-            storePassword = "FCL-Debug"
-            keyAlias = "FCL-Debug"
-            keyPassword = "FCL-Debug"
-        }
-        // minSdk 26 ≥ 24，v1 已无必要，统一启用 v2 + v3 签名方案
-        configureEach {
-            enableV1Signing = false
-            enableV2Signing = true
-            enableV3Signing = true
-        }
-    }
-
     defaultConfig {
-        applicationId = "com.tungsten.fcl"
+        applicationId = "com.pvzce.pvzl"
+        buildConfigField("boolean", "MINECRAFT_FEATURES", "false")
+        manifestPlaceholders["minecraftEnabled"] = "false"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
         versionCode = 1339
@@ -90,24 +68,26 @@ android {
 
     buildTypes {
         getByName("release") {
+            resValue("string", "file_browser_provider", "com.pvzce.pvzl.provider")
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("FCLKey")
+            signingConfig = null
         }
         getByName("debug") {
+            resValue("string", "file_browser_provider", "com.pvzce.pvzl.provider")
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("FCLKey")
+            signingConfig = signingConfigs.getByName("debug")
         }
         create("fordebug") {
             initWith(getByName("debug"))
             applicationIdSuffix = ".debug"
-            signingConfig = signingConfigs.getByName("FCLDebugKey")
+            signingConfig = signingConfigs.getByName("debug")
             // 与 FileProvider authority（${applicationId}.provider）保持一致（原 FCLLibrary 模块的 resValue）
-            resValue("string", "file_browser_provider", "com.tungsten.fcl.debug.provider")
+            resValue("string", "file_browser_provider", "com.pvzce.pvzl.debug.provider")
         }
         configureEach {
             resValue("string", "app_version", defaultConfig.versionName.toString())
-            resValue("string", "curse_api_key", curseApiKey.toString())
-            resValue("string", "oauth_api_key", oauthApiKey.toString())
+            resValue("string", "curse_api_key", "")
+            resValue("string", "oauth_api_key", "")
         }
     }
 
@@ -186,7 +166,7 @@ androidComponents {
             if (output is com.android.build.api.variant.impl.VariantOutputImpl) {
                 (output.getFilter(ABI)?.identifier ?: "all").let { abi ->
                     output.outputFileName =
-                        "FCL-${variant.buildType}-${project.android.defaultConfig.versionName}-${abi}.apk"
+                        "PVZCE-Launcher-${variant.buildType}-${project.android.defaultConfig.versionName}-${abi}.apk"
                 }
             }
         }

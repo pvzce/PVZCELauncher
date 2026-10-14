@@ -22,6 +22,7 @@ public class FCLApp extends Application implements Application.ActivityLifecycle
         super.attachBaseContext(base);
         // 在 attachBaseContext 赋值，早于任何 Activity/ContentProvider，保证全局可用
         instance = this;
+        com.tungsten.fclauncher.utils.FCLPath.loadPaths(this);
     }
 
     @Override

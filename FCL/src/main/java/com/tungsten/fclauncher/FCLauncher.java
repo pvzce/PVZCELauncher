@@ -517,6 +517,7 @@ public class FCLauncher {
     }
 
     public static FCLBridge launchMinecraft(FCLConfig config) {
+        com.tungsten.fcl.generic.LauncherFeatures.requireMinecraft();
         FCLBridge bridge = launchProcess(config, FCLPath.LATEST_GAME_LOG, "Minecraft", true, true, true);
         // 标志先落在 bridge 实例上：launch 线程无 Looper，不能在此触碰 CallbackBridge（类初始化含 Choreographer）
         bridge.setCleanroomActive(config.getInstalledModLoaders() != null
@@ -529,6 +530,7 @@ public class FCLauncher {
     }
 
     public static FCLBridge launchAPIInstaller(FCLConfig config) {
+        com.tungsten.fcl.generic.LauncherFeatures.requireMinecraft();
         return launchProcess(config, "latest_api_installer.log", "API Installer", false, false, false);
     }
 
@@ -561,7 +563,9 @@ public class FCLauncher {
 
                 // launch
                 launch(config, bridge, task);
-            } catch (IOException e) {
+            } catch (Exception e) {
+                log(bridge, "Launcher error: " + e);
+                bridge.onExit(-1);
                 Logging.LOG.log(Level.SEVERE, e.toString());
             }
         });

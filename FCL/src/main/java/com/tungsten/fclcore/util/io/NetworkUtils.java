@@ -103,6 +103,9 @@ public final class NetworkUtils {
     }
 
     public static URLConnection createConnection(URL url) throws IOException {
+        if (!com.tungsten.fcl.generic.LauncherFeatures.minecraftEnabled()) {
+            throw new IOException("Legacy launcher network features are disabled in PVZCE Launcher");
+        }
         URLConnection connection;
         try {
             connection = url.openConnection();
