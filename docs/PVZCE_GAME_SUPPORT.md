@@ -52,7 +52,10 @@
 - 本轮 `bash tools/check_pvzce_profile.sh`：44 项通过；原 `check_generic_java.sh`：43 项通过。未将这两组独立检查冒充实机或完整测试集。
 - `.github/workflows/pvzce-build.yml`：独立 arm64 开发 APK 构建，运行相关测试/检查、两个变体构建、真实 APK Manifest 与签名验证，上传 APK/校验值/构建源码 SHA；使用固定 SHA 的官方 checkout/setup-java/upload-artifact。本轮新增工作流及三个调整的旧工作流均通过 actionlint 1.7.12。旧上游 build/check/release jobs 在目标 Fork 中跳过。没有使用发布 secrets 或创建 Release。
 - SDK/NDK 缓存本轮重建，继承代理及 TLS 信任。平台包首次 sdkmanager 安装遇到 ZIP 失败，使用官方稳定 platform-35_r02.zip 且 SHA-1 校验通过后安装，保留失败 installer 状态；没有忽略校验或关闭 TLS。早期 Gradle wrapper 下载超时与代理连接拒绝不算成功，已修正重跑。
-- GitHub 构建的具体 run/artifact 结果将在核实后交接。前次任务二成功生成的 APK 不包含本轮变化，不能当成本轮 APK。
+- GitHub 构建已实际成功：[run 38586280525](https://github.com/pvzce/PVZCELauncher/actions/runs/38586280525)，源码完整 SHA 为 [`4e76cce77e7a7a85792b98e6b7510f0ba3801370`](https://github.com/pvzce/PVZCELauncher/commit/4e76cce77e7a7a85792b98e6b7510f0ba3801370)。Gradle BUILD SUCCESSFUL in 5m 59s；相关单元测试、Checkstyle、两个 arm64 APK、最终 Manifest 和签名验证步骤均成功。
+- [实际下载 artifact 11905367976](https://github.com/pvzce/PVZCELauncher/actions/runs/38586280525/artifacts/11905367976) 已上传并完成 finalization，358573102 字节，API 确认 expired=false；到期时间 2026-10-28T15:12:25Z（北京时间 23:12）。整个 ZIP 的 SHA-256 为 `bdfbef7f6abfff69304bbb2ddf2e62295b466479773a55f9447f4cc8d734dbc0`；各 APK 的校验值在 ZIP 内 SHA256SUMS。包含 debug/fordebug APK、解码 Manifest、签名/ABI 元数据、两组预检记录、相关单元测试 XML 和 BUILD_INFO.txt。
+- 旧 Build / Check Codes 两个 push run 的结论均 skipped，没有重复构建矩阵或使用发布 secrets。此次只有一轮新的 APK 工作流成功运行，之后补记 README/本文的 Markdown 提交不触发重复构建；合并 main 也不触发。
+- 本次下载包确实包含本轮游戏适配；没有把前次任务二的旧 APK 当成本轮产物。后续文档补记不改变该已构建的代码或工作流。
 - 没有 Android 设备、没有真实游戏 shadow JAR 的端到端运行证据；Java 25 内嵌 JVM、Fabric child classloader 与 patched LWJGL 版本替换、OpenGL 3.2、OpenAL/STB、游戏绘图/输入/音频、存档/编辑器/资源热重载都仍需实机核查。
 - 原任务二两项 controlconverter 金样失败仍留在历史验证报告中；本轮不改该转换器，也未据此宣称完整工程测试全通过。
 

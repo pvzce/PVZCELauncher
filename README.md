@@ -6,6 +6,8 @@
 
 ## 下载开发 APK
 
+**2026-10-14 已验证构建：[下载 arm64 APK 与校验记录（ZIP）](https://github.com/pvzce/PVZCELauncher/actions/runs/38586280525/artifacts/11905367976) · [成功运行记录](https://github.com/pvzce/PVZCELauncher/actions/runs/38586280525)**。源码提交为 [`4e76cce77e7a7a85792b98e6b7510f0ba3801370`](https://github.com/pvzce/PVZCELauncher/commit/4e76cce77e7a7a85792b98e6b7510f0ba3801370)；该下载包于北京时间 **2026-10-28 23:12** 到期。
+
 打开 [GitHub Actions · PVZCE Android APK](https://github.com/pvzce/PVZCELauncher/actions/workflows/pvzce-build.yml)，选择成功的运行，在页面底部 **Artifacts** 下载 `PVZCE-Launcher-arm64-<完整提交 SHA>`，解压后安装 APK。下载通常需要登录 GitHub；artifact 保留 14 天，过期后可重新运行工作流。
 
 | APK | applicationId | 用途 |
