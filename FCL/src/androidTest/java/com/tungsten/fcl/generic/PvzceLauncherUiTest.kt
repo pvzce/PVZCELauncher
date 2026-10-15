@@ -44,8 +44,7 @@ class PvzceLauncherUiTest {
         idle()
         // Let FCL's title/selection animation finish before taking a device screenshot.
         SystemClock.sleep(600)
-        val image = instrumentation.uiAutomation.takeScreenshot()
-        assertNotNull(image)
+        val image = requireNotNull(instrumentation.uiAutomation.takeScreenshot()) { "Device screenshot unavailable" }
         val directory = File(context.getExternalFilesDir(null), "ui-smoke").apply { mkdirs() }
         File(directory, "$name.png").outputStream().use { assertTrue(image.compress(Bitmap.CompressFormat.PNG, 100, it)) }
         image.recycle()
@@ -76,6 +75,8 @@ class PvzceLauncherUiTest {
                     assertEquals(View.VISIBLE, activity.findViewById<View>(page).visibility)
                     assertEquals(View.GONE, activity.findViewById<View>(R.id.pvzce_page_home).visibility)
                 }
+                if (page == R.id.pvzce_page_content) screenshot("content-light")
+                if (page == R.id.pvzce_page_advanced) screenshot("advanced-light")
             }
             scenario.onActivity { activity -> activity.findViewById<View>(R.id.pvzce_render_card).performClick() }
             screenshot("settings-light")
@@ -149,8 +150,9 @@ class PvzceLauncherUiTest {
             val browserMonitor = instrumentation.addMonitor("com.tungsten.fcllibrary.browser.FileBrowserActivity", null, false)
             try {
                 scenario.onActivity { activity -> activity.findViewById<View>(R.id.pvzce_browse).performClick() }
-                val browser = instrumentation.waitForMonitorWithTimeout(browserMonitor, 10000)
-                assertNotNull("FCL file browser must actually open", browser)
+                val browser = requireNotNull(instrumentation.waitForMonitorWithTimeout(browserMonitor, 10000)) {
+                    "FCL file browser must actually open"
+                }
                 idle()
                 instrumentation.runOnMainSync {
                     assertTrue(browser.findViewById<TextView>(R.id.current_folder).text.toString().contains("games/pvzce"))
@@ -166,6 +168,7 @@ class PvzceLauncherUiTest {
             scenario.onActivity { activity ->
                 activity.findViewById<View>(R.id.pvzce_render_card).performClick()
                 activity.findViewById<View>(R.id.pvzce_install).performClick()
+                assertTrue(activity.findViewById<View>(R.id.pvzce_status).isShown)
                 assertFalse(activity.findViewById<View>(R.id.pvzce_start).isEnabled)
                 assertFalse(activity.findViewById<View>(R.id.pvzce_jar_card).isEnabled)
             }

@@ -196,7 +196,7 @@ class GenericLauncherActivity : FCLActivity() {
         text(home, R.string.pvzce_intro)
         field(home, "jar", R.id.pvzce_jar, R.string.pvzce_jar)
         action(home, R.id.pvzce_preset, R.string.pvzce_preset) { applyPvzcePreset() }
-        status = text(home, R.string.pvzce_ready).apply { id = R.id.pvzce_status; setTextIsSelectable(true) }
+        status = findViewById<TextView>(R.id.pvzce_status).apply { setTextIsSelectable(true) }
 
         val content = page(R.id.pvzce_page_content)
         text(content, R.string.pvzce_content_hint)

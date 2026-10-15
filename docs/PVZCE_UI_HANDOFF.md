@@ -55,3 +55,7 @@
 [run 38680027122](https://github.com/pvzce/PVZCELauncher/actions/runs/38680027122)，源码 `6122b159a464c6df71ef73bb77749b501e57d18c`：相关单元测试、Checkstyle、arm64 debug/fordebug APK、最终 Manifest 与签名步骤全部成功。整轮仍是 failure：UI 测试步骤在 `adb: command not found` 退出，未运行 instrumentation，也没有实际 UI 截图。进一步读取诊断发现 emulator 与 avdmanager 未共用 AVD 路径（Unknown AVD name）。已补装 platform-tools、将 platform-tools/emulator 加入 GITHUB_PATH，并显式统一 ANDROID_AVD_HOME，等待新 run。没有将 517 字节的诊断 artifact 当成 UI 成功证据。
 
 同时复核并修正 FCLButton 构造会清除 XML minHeight 的行为：在入口中显式恢复最小 48dp 触控高度、右侧按钮长文本换行；导航选中标签增加高对比底色；FCLDynamicIsland 使用持续标题，避免原动画自动隐藏导致中央页面跳动；浏览器关闭无关外部选择按钮。增加实际打开 FCL 文件浏览器与日志导出选择器的 UI 验证，强化运行组件安装完成和具体缺失 JAR 错误的断言。
+
+第二轮 [run 38680917302](https://github.com/pvzce/PVZCELauncher/actions/runs/38680917302)，源码 `304a0d654a0c231cb6e5705b8d8997ea4ce9c19b`：arm64 构建、相关检查和 Manifest/签名均通过；模拟器步骤失败，诊断收集卡在 adb 设备等待。给收集命令补上超时，分支内新提交取消已失效的旧运行，以获取诊断并继续修复。尚未因此合并 main。
+
+操作进度 / 保存 / 导入结果改为右侧全局可滚动区域，避免切到设置或内容页后看不到处理状态。

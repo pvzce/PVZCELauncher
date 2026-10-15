@@ -11,7 +11,7 @@ permissions:
 
 concurrency:
   group: pvzce-apk-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -153,8 +153,8 @@ jobs:
         shell: bash
         run: |
           mkdir -p ui-artifacts
-          adb pull /sdcard/Android/data/com.pvzce.pvzl.debug/files/ui-smoke ui-artifacts/ || true
-          adb logcat -d > ui-artifacts/logcat.txt || true
+          timeout 20 adb pull /sdcard/Android/data/com.pvzce.pvzl.debug/files/ui-smoke ui-artifacts/ || true
+          timeout 15 adb logcat -d > ui-artifacts/logcat.txt || true
           cp -R FCL/build/outputs/androidTest-results ui-artifacts/ 2>/dev/null || true
           cp -R FCL/build/reports/androidTests ui-artifacts/ 2>/dev/null || true
           cp "$RUNNER_TEMP/emulator.log" "$RUNNER_TEMP/pvzce-ui-tests.log" ui-artifacts/ 2>/dev/null || true
