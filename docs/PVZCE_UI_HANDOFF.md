@@ -1,6 +1,6 @@
 # PVZCE FCL 界面交接（2026-10-15）
 
-状态：实现已完成，Android 编译与模拟器验证待本分支 GitHub run 实际结果补记；当前不声称构建或实机游戏验证成功。
+状态：本轮工作已结束。FCL 界面实现、相关检查与 arm64 开发 APK 已完成并推送；**实际 UI 验证被软件模拟器系统服务异常阻塞，四项 instrumentation 未开始、没有实际截图；未合并 main**。不是仍在运行，也不声称 UI 或真实游戏验证成功。最终构建源码为 `9a461a099302558a20d492662ae03e708ff044bc`；本文后续交接提交仅改 Markdown，不改变该 APK 源码。
 
 - 仓库：https://github.com/pvzce/PVZCELauncher
 - 开发分支：`dev/pvzl-fcl-ui-20261015-01`
@@ -37,7 +37,7 @@
 - 原 FCL/HMCL 等归属、根 GPL-3.0 与第三方声明保留。无新增库、游戏源码/素材或游戏 JAR。LWJGLX 的既有许可待核查项继续见通用文档。
 - 只构建 Android Debug 签名的开发 APK；没有使用原发布密钥或创建 Release。
 
-## 验证记录（待补 GitHub 结果）
+## 本地检查与云端验证范围
 
 本地云端 Java17 module compiler：
 
@@ -46,7 +46,7 @@
 - `python3 tools/audit_generic_launcher.py`：源码 XML / 三变体身份 / MC 隔离 / JNI 审计通过。
 - `git diff --check`：通过。
 
-计划在已有工作流运行原相关单元测试、Checkstyle、arm64 debug/fordebug 开发 APK、最终 Manifest/签名审计；随后在 Android30 x86_64 模拟器运行 `PvzceLauncherUiTest`，检查真实 FCL Activity 导航、浅暗色对比度/截图、配置重建持久化、系统选择器与 FCL 文件浏览器路由、随附 JRE 安装、无游戏文件错误、真实日志读取。使用 x86_64 仅做 UI 测试，下载 APK 保持 arm64。
+已有工作流已运行相关单元测试、Checkstyle、arm64 debug/fordebug 开发 APK、最终 Manifest/签名审计并成功；UI 部分在 Android30 x86_64 模拟器尝试运行 `PvzceLauncherUiTest`，检查真实 FCL Activity 导航、浅暗色对比度/截图、配置重建持久化、系统选择器与 FCL 文件浏览器路由、随附 JRE 安装、无游戏文件错误、真实日志读取。使用 x86_64 仅做 UI 测试，下载 APK 保持 arm64。
 
 本地未检测到 SDK/NDK/emulator 或 /dev/kvm，未冒充本地构建和实机运行。无真实游戏 shadow JAR；任何模拟器 UI 成功不等于游戏渲染、音频、输入兼容性通过。既有两项 controlconverter 金样失败未修复，相关测试通过也不表示完整工程测试全绿。
 
@@ -74,7 +74,7 @@
 
 截图保存优先使用 instrumentation 的 `additionalTestOutputDir`，由 AGP 在卸载测试 APK 前自动带回 host；工作流额外收集 `connected_android_test_additional_output`，并在 UI 测试成功后检查八张实际 PNG 是否存在且大于 1KiB。应用外部私有文件只用于手动 runner 的回退，不把卸载后失效的 adb pull 当作可靠截图通道。参考 Android 工具源码 UtpConfigFactoryTest / AndroidDeviceDescriptor 对 additionalTestOutputDir 的定义。
 
-## 最终候选的独立 APK 核查
+## 首个完整 UI 候选的独立 APK 核查
 
 源码完整 SHA：[`1df359548ca778985153d7764b82735c00f0425c`](https://github.com/pvzce/PVZCELauncher/commit/1df359548ca778985153d7764b82735c00f0425c)。
 实际工作流：[run 38683832870](https://github.com/pvzce/PVZCELauncher/actions/runs/38683832870)，job `116254495818`。
@@ -130,3 +130,35 @@ python3 tools/audit_built_manifests.py debug-AndroidManifest.xml fordebug-Androi
 `38683832870` 最终为 failure。软件模拟器实际在 324888 ms 后报告 boot completed，但 ddmlib 安装 x86_64 APK 时 `Failed to install-write all apks`，其后 UTP 查询 activity/package 服务不可用。下载 [诊断 artifact 11950060615](https://github.com/pvzce/PVZCELauncher/actions/runs/38683832870/artifacts/11950060615) 并核对 ZIP digest `b68c203d8e8a2373af1b5f9c7ba2cef6e1f45713978977595b9788f3b69ea7a0`：实际测试 XML tests=0，PNG=0。没有用零 tests/零 failures 当作成功。
 
 修复限于测试环境：在启动模拟器之前用 wrapper 构建 x86_64 应用和测试 APK，避免与 TCG 争用 CPU；降低 UI 测试显示分辨率、userdata 4GiB；检查 activity/package 连续就绪；用官方 adb `install --no-streaming --no-incremental` 分别安装两个 APK，直接记录安装结果；`am instrument -w` 运行完全相同的四项 Activity 测试，必须出现 `OK (4 tests)` 且没有失败/进程崩溃标记，另有八张 PNG 检查。测试不被删除或跳过。直接 runner 的输出目录由 adb 在测试后收集，无自动卸载丢失问题。日志收集限定 main/system/crash，避免内核缓冲耗尽诊断超时。来源：https://android.googlesource.com/platform/packages/modules/adb/+/HEAD/docs/user/adb.1.md 和 https://developer.android.com/studio/test/command-line 。当前不推断安装失败根因是应用代码或磁盘，也不修改主机权限。
+
+
+## 安装修复后的 APK 核查
+
+源码 [`9a461a099302558a20d492662ae03e708ff044bc`](https://github.com/pvzce/PVZCELauncher/commit/9a461a099302558a20d492662ae03e708ff044bc)，[run 38685683742](https://github.com/pvzce/PVZCELauncher/actions/runs/38685683742)，job `116259858528`。44 + 43 独立检查、源码隔离审计、7 项相关单元测试、Checkstyle、UI 测试源码编译、两个 arm64 APK、最终 Manifest/签名检查再次成功。
+
+[最新 APK artifact 11949812303](https://github.com/pvzce/PVZCELauncher/actions/runs/38685683742/artifacts/11949812303) 358652998 字节，到期 `2026-10-29T05:20:52Z`（北京时间 2026-10-29 13:20:52）。已实际下载新 ZIP，重新核对 BUILD_INFO 源码与 run、内部 SHA256SUMS、7/0/0/0 JUnit XML、两包 Android Debug 签名、arm64-only native libs、JRE25/LWJGL3.4.1 资产，并重新执行最终 Manifest 审计；全部通过。
+
+| 文件 | SHA-256 |
+| --- | --- |
+| artifact ZIP | `32ba92d8465a48e79a0062983ed71c23cbcb79a447fffc8d775cc45d1ddd49f9` |
+| debug APK | `c4f799b6304507d1ee68ec7abd656345f89d7a658e305c371da437051b9666a0` |
+| fordebug APK | `a8aebd4d64a4f7ddcda6c170e052577d4676b2a3d3fbd7e85a88683d88dd2b1e` |
+
+
+## 最终状态、阻塞与主分支决策
+
+[run 38685683742](https://github.com/pvzce/PVZCELauncher/actions/runs/38685683742) 最终 **failure**，失败发生在应用安装，尚未进入 instrumentation：
+
+- arm64 Gradle 构建 `BUILD SUCCESSFUL in 5m 42s`；7 项相关单测、Checkstyle、UI 测试 Kotlin 编译、两个开发 APK、真实 Manifest 和 Debug 签名均通过。
+- x86_64 `:FCL:assembleFordebug :FCL:assembleFordebugAndroidTest -Darch=x86_64 --no-daemon --console=plain --max-workers=2` 为 `BUILD SUCCESSFUL in 31s`。
+- KVM 真实检查返回无权限。没有修改权限或用户组；官方标注不受支持的 TCG 软件模式实际在 329081 ms 后报告 boot completed。
+- activity/package 服务已连续三次响应，设备 /data 仍有 5.6 GiB 可用；随后 `adb install --no-streaming --no-incremental -r FCL/build/outputs/apk/fordebug/*-x86_64.apk` 成功推送 185556785 字节，但 Package Manager 返回 `cmd: Failure calling service package: Broken pipe (32)`，命令退出 224。
+- 下载 [实际最终诊断 artifact 11950062905](https://github.com/pvzce/PVZCELauncher/actions/runs/38685683742/artifacts/11950062905)，28627 字节、ZIP SHA-256 `375022b1525cac0981c947e104c9dc107a25e0025f936ac46f2d28d6e1166ec5`，独立校验通过。只有六个诊断文件，PNG **0**，没有 instrumentation 运行输出，也没有 UI JUnit 结果。不是四项 UI 测试成功。
+- logcat 包含安装前 `com.android.settings/.FallbackHome` 输入 ANR、Watchdog 长等待和 64980 ms 的系统 UI 慢调度；后续 service list 缺少 activity/package。宿主机仍有 74 GiB 磁盘、约 14 GiB 可用内存。证据表明软件模拟器系统服务不稳定；没有据此推断应用界面断言失败，也没有把根因虚构为 APK 磁盘不足。
+- 模拟器实际显示为 720x1280；`-dpi-device` 被 emulator 37.2.12 明确忽略，仍是 420 dpi，不声称 320 dpi 生效。没有可供人工视觉审查的 Activity 截图。
+
+**主分支决策：不合并。** 用户要求关键验证失败时保留开发分支；实际 UI 安装/运行这一关键检查未完成。main 保留 `bc9639cca2ce67ea63e630cc982501b3d75f8f04`；旧 smoke 分支未动。实现和本次真实 APK 均保存在 `dev/pvzl-fcl-ui-20261015-01`，可供继续验证。
+
+后续需要合法可用的硬件加速云端 Android 运行器或云端 Android 设备，使用现有 wrapper 构建并运行同一组 `PvzceLauncherUiTest` 四项测试，取得八张真实 PNG 后检查浅暗色、导航、按钮可达性与文字布局；相关检查成功且远端 main 无冲突时再安全合并。运行真实 PVZCE 仍需用户依法提供的游戏 shadow JAR / 游戏素材，不能从此次 APK 构建推断其图形、音频和输入兼容性。既有两项 controlconverter 金样失败继续保留。
+
+README 和适配文档已更新；最终补记只修改 Markdown，工作流 paths-ignore 不触发重复构建。后续任务应读取分支实际 HEAD 和本文记录的已构建源码 SHA，而不是假定 main 已更新。

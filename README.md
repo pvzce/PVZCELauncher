@@ -6,7 +6,7 @@
 
 ## 下载开发 APK
 
-**2026-10-15 FCL 界面候选包：[下载 arm64 APK 与校验记录（ZIP）](https://github.com/pvzce/PVZCELauncher/actions/runs/38683832870/artifacts/11949079177) · [构建与 UI 检查记录](https://github.com/pvzce/PVZCELauncher/actions/runs/38683832870)**。源码为 [`1df359548ca778985153d7764b82735c00f0425c`](https://github.com/pvzce/PVZCELauncher/commit/1df359548ca778985153d7764b82735c00f0425c)；两个 APK、相关检查及最终 Manifest/签名验证已通过，模拟器 UI 结果见下方交接文档。下载包于北京时间 **2026-10-29 13:01:51** 到期。
+**2026-10-15 FCL 界面候选包：[下载 arm64 APK 与校验记录（ZIP）](https://github.com/pvzce/PVZCELauncher/actions/runs/38685683742/artifacts/11949812303) · [构建与 UI 检查记录](https://github.com/pvzce/PVZCELauncher/actions/runs/38685683742)**。源码为 [`9a461a099302558a20d492662ae03e708ff044bc`](https://github.com/pvzce/PVZCELauncher/commit/9a461a099302558a20d492662ae03e708ff044bc)；两个 APK、相关检查及最终 Manifest/签名验证已通过；**软件模拟器安装失败，四项 UI 测试未开始、没有截图，整轮工作流为 failure，开发分支尚未合并 main**。诊断与后续验证条件见下方交接文档。下载包于北京时间 **2026-10-29 13:20:52** 到期。
 
 打开 [GitHub Actions · PVZCE Android APK](https://github.com/pvzce/PVZCELauncher/actions/workflows/pvzce-build.yml)，核对运行中 APK 构建和身份验证步骤的结果，并另看 UI 检查结论；在页面底部 **Artifacts** 下载 `PVZCE-Launcher-arm64-<完整提交 SHA>`，解压后安装 APK。下载通常需要登录 GitHub；artifact 保留 14 天，过期后可重新运行工作流。
 

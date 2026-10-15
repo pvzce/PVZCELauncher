@@ -49,7 +49,7 @@
 
 ## 2026-10-15 UI 验证
 
-本轮基于 main `bc9639cca2ce67ea63e630cc982501b3d75f8f04`。游戏 master 重新只读核对，仍为上述 `e40b28edca5265b9537d22c9a220ce51bc68b2e7`。当前 UI 源码、APK、模拟器证据与是否合并以 [UI 交接](PVZCE_UI_HANDOFF.md) 的实际记录为准，不沿用前一日的构建结论。
+本轮基于 main `bc9639cca2ce67ea63e630cc982501b3d75f8f04`。游戏 master 重新只读核对，仍为上述 `e40b28edca5265b9537d22c9a220ce51bc68b2e7`。当前 UI 源码、APK、模拟器证据以 [UI 交接](PVZCE_UI_HANDOFF.md) 的实际记录为准。2026-10-15 arm64 APK 与相关检查成功；软件模拟器系统服务异常，安装失败，四项 UI 测试未执行、无截图，未合并 main。不沿用前一日的构建结论。
 
 ## 2026-10-14 历史验证与剩余问题
 
