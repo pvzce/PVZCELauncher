@@ -1,0 +1,30 @@
+<resources>
+    <item name="pvzce_jar" type="id" />
+    <item name="pvzce_classpath" type="id" />
+    <item name="pvzce_main" type="id" />
+    <item name="pvzce_jvm" type="id" />
+    <item name="pvzce_args" type="id" />
+    <item name="pvzce_work" type="id" />
+    <item name="pvzce_profile" type="id" />
+    <item name="pvzce_runtime" type="id" />
+    <item name="pvzce_renderer" type="id" />
+    <item name="pvzce_lwjgl" type="id" />
+    <item name="pvzce_install" type="id" />
+    <item name="pvzce_preset" type="id" />
+    <item name="pvzce_import_mods" type="id" />
+    <item name="pvzce_import_resources" type="id" />
+    <item name="pvzce_import_data" type="id" />
+    <item name="pvzce_browse" type="id" />
+    <item name="pvzce_save" type="id" />
+    <item name="pvzce_status" type="id" />
+    <item name="pvzce_log_text" type="id" />
+    <item name="pvzce_refresh_logs" type="id" />
+    <item name="pvzce_export_logs" type="id" />
+    <item name="pvzce_theme_mode" type="id" />
+    <item name="pvzce_green" type="id" />
+    <item name="pvzce_page_home" type="id" />
+    <item name="pvzce_page_content" type="id" />
+    <item name="pvzce_page_settings" type="id" />
+    <item name="pvzce_page_advanced" type="id" />
+    <item name="pvzce_page_logs" type="id" />
+</resources>

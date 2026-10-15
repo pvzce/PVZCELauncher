@@ -2,6 +2,18 @@ package com.tungsten.fcl.generic
 
 import android.content.Intent
 import android.os.Bundle
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
+import android.view.View
+import androidx.activity.OnBackPressedCallback
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.widget.doAfterTextChanged
+import com.tungsten.fcl.R
+import com.tungsten.fcllibrary.browser.FileBrowser
+import com.tungsten.fcllibrary.browser.options.LibMode
+import com.tungsten.fcllibrary.browser.options.SelectionMode
+import com.tungsten.fcllibrary.component.theme.ThemeEngine
+import com.tungsten.fcllibrary.component.view.*
 import android.provider.OpenableColumns
 import android.widget.*
 import androidx.activity.result.contract.ActivityResultContracts
@@ -31,7 +43,38 @@ class GenericLauncherActivity : FCLActivity() {
     private lateinit var pvzce: CheckBox
     private var importMods = false
     private var packType = "resourcepacks"
+    private val controls = mutableListOf<View>()
+    private val pages = mutableListOf<View>()
+    private val navIds = listOf(R.id.pvzce_nav_home, R.id.pvzce_nav_content, R.id.pvzce_nav_settings,
+        R.id.pvzce_nav_advanced, R.id.pvzce_nav_logs)
+    private val labelIds = listOf(R.id.pvzce_label_home, R.id.pvzce_label_content, R.id.pvzce_label_settings,
+        R.id.pvzce_label_advanced, R.id.pvzce_label_logs)
+    private val titles = listOf(R.string.pvzce_home, R.string.pvzce_content, R.string.pvzce_settings,
+        R.string.pvzce_advanced, R.string.pvzce_logs)
+    private var selectedPage = 0
+    private lateinit var logText: TextView
+    private var initialized = false
+    private val themeRefresh = Runnable { refreshShell() }
+    private val logFile get() = File(FCLPath.LOG_DIR, "latest_jar_executor.log")
     private var busy = false
+        set(value) {
+            field = value
+            controls.forEach { it.isEnabled = !value; it.alpha = if (value) 0.5f else 1f }
+        }
+    private val logExporter = registerForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
+        if (uri != null && !busy) {
+            busy = true
+            lifecycleScope.launch {
+                val result = withContext(Dispatchers.IO) { runCatching {
+                    require(logFile.isFile) { getString(R.string.pvzce_no_logs) }
+                    val output = contentResolver.openOutputStream(uri, "wt") ?: error("无法写入目标文件")
+                    output.use { out -> logFile.inputStream().use { it.copyTo(out) } }
+                } }
+                result.onSuccess { status.text = "日志已导出" }.onFailure { showError(it) }
+                busy = false
+            }
+        }
+    }
     private val importer = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         if (busy || uris.isEmpty()) return@registerForActivityResult
         if (pvzce.isChecked && !importMods && uris.size != 1) {
@@ -42,7 +85,7 @@ class GenericLauncherActivity : FCLActivity() {
         val dest = if (importMods) File(fields.getValue("work").text.toString(), "mods")
             else File(filesDir, "games/imported")
         busy = true
-        status.text = "Importing selected files…"
+        status.text = "正在导入所选文件…"
         lifecycleScope.launch {
             val result = withContext(Dispatchers.IO) {
                 runCatching {
@@ -56,13 +99,13 @@ class GenericLauncherActivity : FCLActivity() {
             }
             result.onSuccess { paths ->
                 if (importMods) {
-                    status.text = "Mods imported. Restart the game to load them:\n" + paths.joinToString("\n")
+                    status.text = "模组已导入，重新启动游戏后加载：\n" + paths.joinToString("\n")
                 } else if (pvzceImport) {
                     fields.getValue("jar").setText(paths.single())
                     fields.getValue("classpath").setText("")
                 } else if (paths.size == 1 && fields.getValue("jar").text.isEmpty()) fields.getValue("jar").setText(paths[0])
                 else fields.getValue("classpath").setText((JavaLaunchSpec.lines(fields.getValue("classpath").text.toString()) + paths).joinToString("\n"))
-                if (!importMods) status.text = "Imported into app storage:\n" + paths.joinToString("\n")
+                if (!importMods) status.text = "已导入应用存储：\n" + paths.joinToString("\n")
                 save()
             }.onFailure { showError(it) }
             busy = false
@@ -73,12 +116,12 @@ class GenericLauncherActivity : FCLActivity() {
         if (busy || uri == null) return@registerForActivityResult
         val destination = File(fields.getValue("work").text.toString(), packType)
         busy = true
-        status.text = "Copying selected pack directory…"
+        status.text = "正在复制包目录…"
         lifecycleScope.launch {
             val result = withContext(Dispatchers.IO) {
                 runCatching { GameContentImporter.tree(contentResolver, uri, destination) }
             }
-            result.onSuccess { status.text = "Pack imported: $it\nEnable/reload it from the game's pack screen." }
+            result.onSuccess { status.text = "包目录已导入：$it\n请在游戏的包管理界面启用或重载。" }
                 .onFailure { showError(it) }
             busy = false
         }
@@ -90,69 +133,283 @@ class GenericLauncherActivity : FCLActivity() {
         importMods = savedInstanceState?.getBoolean("import_mods") ?: false
         packType = savedInstanceState?.getString("pack_type") ?: "resourcepacks"
         RendererManager.init(this)
+        setContentView(R.layout.activity_pvzce_launcher)
         val prefs = getSharedPreferences("generic_launch", MODE_PRIVATE)
-        val form = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(24, 12, 24, 12) }
-        setContentView(ScrollView(this).apply { addView(form) })
-        fun text(value: String) { form.addView(TextView(this).apply { text = value }) }
-        text("PVZCE Launcher\nFor PVZCE: apply the preset, import your game JAR/content, then install JRE 25 and launch. Advanced generic Java / LWJGL mode is also available.")
-        fun field(key: String, label: String, default: String = "", multiline: Boolean = false) {
-            text(label)
-            val editor = EditText(this).apply {
-                id = android.view.View.generateViewId()
+        val fresh = !prefs.contains("jar") && !prefs.contains("pvzce")
+        val container = findViewById<FrameLayout>(R.id.pvzce_pages)
+        fun page(id: Int): LinearLayout {
+            val body = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(dp(16), dp(12), dp(16), dp(16))
+            }
+            val scroll = ScrollView(this).apply {
+                this.id = id
+                isFillViewport = true
+                addView(body)
+            }
+            pages.add(scroll)
+            container.addView(scroll, FrameLayout.LayoutParams(-1, -1))
+            return body
+        }
+        fun text(parent: LinearLayout, label: Int): TextView = FCLTextView(this).apply {
+            setUseThemeColor(true)
+            setText(label)
+            setPadding(0, dp(12), 0, dp(6))
+            parent.addView(this)
+        }
+        fun field(parent: LinearLayout, key: String, id: Int, label: Int,
+                  default: String = "", multiline: Boolean = false) {
+            text(parent, label).labelFor = id
+            fields[key] = FCLEditText(this).apply {
+                this.id = id
                 setSingleLine(!multiline)
                 inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS or
                     (if (multiline) android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE else 0)
                 setText(prefs.getString(key, default))
+                parent.addView(this, LinearLayout.LayoutParams(-1, -2))
+                controls.add(this)
             }
-            fields[key] = editor
-            form.addView(editor)
         }
-        pvzce = CheckBox(this).apply {
-            text = "PVZCE profile (Java 25+, own mod loader and game directory)"
-            isChecked = prefs.getBoolean("pvzce", false)
-        }
-        form.addView(pvzce)
-        field("jar", "JAR path (optional with classpath)")
-        field("classpath", "Classpath: one existing JAR/directory per line", multiline = true)
-        field("main", "Main class (blank: executable JAR Main-Class)")
-        field("jvm", "JVM options: one literal argument per line", "-Xmx512m", true)
-        field("args", "Program arguments: one literal argument per line", multiline = true)
-        field("work", "Working directory (absolute, existing, writable)", File(filesDir, "games").absolutePath)
-        fun spinner(label: String, entries: List<String>, key: String, values: List<String> = entries): Spinner {
-            text(label)
+        fun action(parent: LinearLayout, id: Int, label: Int, block: () -> Unit): Button =
+            (layoutInflater.inflate(R.layout.pvzce_action_button, parent, false) as FCLButton).apply {
+                this.id = id
+                minimumHeight = dp(48)
+                isSingleLine = false
+                setText(label)
+                setOnClickListener { if (!busy) block() }
+                parent.addView(this)
+                controls.add(this)
+            }
+        fun spinner(parent: LinearLayout, id: Int, label: Int, entries: List<String>,
+                    key: String, values: List<String> = entries, default: String = values.first()): Spinner {
+            text(parent, label).labelFor = id
             return Spinner(this).apply {
+                this.id = id
                 adapter = ArrayAdapter(this@GenericLauncherActivity, android.R.layout.simple_spinner_dropdown_item, entries)
-                setSelection(values.indexOf(prefs.getString(key, values.first())).coerceAtLeast(0))
-                form.addView(this)
+                setSelection(values.indexOf(prefs.getString(key, default)).coerceAtLeast(0))
+                minimumHeight = dp(48)
+                parent.addView(this, LinearLayout.LayoutParams(-1, -2))
+                controls.add(this)
             }
         }
-        runtimes = spinner("Bundled Android JRE", runtimeNames, "runtime")
-        renderers = spinner("Renderer (PVZCE needs OpenGL 3.2 core)", RendererManager.rendererList.map { it.name },
-            "renderer", RendererManager.rendererList.map { it.id })
-        lwjgl = spinner("Bundled Android LWJGL", lwjglNames, "lwjgl")
-        form.addView(Button(this).apply { text = "Apply PVZCE preset"; setOnClickListener {
-            if (!busy) applyPvzcePreset()
-        } })
-        form.addView(Button(this).apply { text = "Import JAR / dependency files"; setOnClickListener {
-            if (!busy) { importMods = false; save(); importer.launch(arrayOf("*/*")) }
-        } })
-        form.addView(Button(this).apply { text = "Import PVZCE mods (JAR)"; setOnClickListener {
-            if (!busy && validateContentDirectory()) { importMods = true; save(); importer.launch(arrayOf("*/*")) }
-        } })
-        for (kind in listOf("resourcepacks", "datapacks")) {
-            form.addView(Button(this).apply { text = "Import PVZCE $kind directory"; setOnClickListener {
-                if (!busy && validateContentDirectory()) { packType = kind; save(); packImporter.launch(null) }
-            } })
+        val home = page(R.id.pvzce_page_home)
+        text(home, R.string.pvzce_intro)
+        field(home, "jar", R.id.pvzce_jar, R.string.pvzce_jar)
+        action(home, R.id.pvzce_preset, R.string.pvzce_preset) { applyPvzcePreset() }
+        status = findViewById<TextView>(R.id.pvzce_status).apply { setTextIsSelectable(true) }
+
+        val content = page(R.id.pvzce_page_content)
+        text(content, R.string.pvzce_content_hint)
+        action(content, R.id.pvzce_import_mods, R.string.pvzce_import_mods) {
+            if (validateContentDirectory()) { importMods = true; save(); importer.launch(arrayOf("*/*")) }
         }
-        installButton = Button(this).apply { text = "Install / repair selected bundled runtime"; setOnClickListener { install() } }
-        form.addView(installButton)
-        form.addView(Button(this).apply { text = "Save configuration"; setOnClickListener { save(); status.text = "Saved" } })
-        launchButton = Button(this).apply { text = "Validate and launch"; setOnClickListener { startJava() } }
-        form.addView(launchButton)
-        status = TextView(this).apply { setTextIsSelectable(true); text = "Game files: ${File(filesDir, "games")}\nLogs: ${FCLPath.LOG_DIR}\nUses bundled Android LWJGL. Blank main class reads the executable JAR manifest." }
-        form.addView(status)
-        if (savedInstanceState != null) pvzce.isChecked = savedInstanceState.getBoolean("pvzce")
-        savedInstanceState?.getStringArrayList("field_values")?.forEachIndexed { index, value -> fields.values.elementAtOrNull(index)?.setText(value) }
+        for ((kind, id, label) in listOf(
+            Triple("resourcepacks", R.id.pvzce_import_resources, R.string.pvzce_import_resources),
+            Triple("datapacks", R.id.pvzce_import_data, R.string.pvzce_import_data))) {
+            action(content, id, label) {
+                if (validateContentDirectory()) { packType = kind; save(); packImporter.launch(null) }
+            }
+        }
+        action(content, R.id.pvzce_browse, R.string.pvzce_browse) { browseGameData() }
+
+        val settings = page(R.id.pvzce_page_settings)
+        text(settings, R.string.pvzce_runtime_hint)
+        runtimes = spinner(settings, R.id.pvzce_runtime, R.string.pvzce_runtime, runtimeNames, "runtime",
+            default = if (fresh) "jre25" else "jre8")
+        val rendererValues = RendererManager.rendererList.map { it.id }
+        renderers = spinner(settings, R.id.pvzce_renderer, R.string.pvzce_renderer,
+            RendererManager.rendererList.map { it.name }, "renderer", rendererValues,
+            if (fresh) RendererManager.RENDERER_VIRGL.id else rendererValues.first())
+        lwjgl = spinner(settings, R.id.pvzce_lwjgl, R.string.pvzce_lwjgl, lwjglNames, "lwjgl",
+            default = if (fresh) PvzceProfile.LWJGL else lwjglNames.first())
+        installButton = action(settings, R.id.pvzce_install, R.string.pvzce_install) { install() }
+        text(settings, R.string.pvzce_theme)
+        val themeMode = Spinner(this).apply {
+            id = R.id.pvzce_theme_mode
+            minimumHeight = dp(48)
+            adapter = ArrayAdapter(this@GenericLauncherActivity, android.R.layout.simple_spinner_dropdown_item,
+                listOf(getString(R.string.pvzce_theme_system), getString(R.string.pvzce_theme_light), getString(R.string.pvzce_theme_dark)))
+            setSelection(getSharedPreferences("launcher", MODE_PRIVATE).getInt("themeMode", 0).coerceIn(0, 2))
+        }
+        settings.addView(themeMode)
+        themeMode.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                val themePrefs = getSharedPreferences("launcher", MODE_PRIVATE)
+                if (themePrefs.getInt("themeMode", 0) == position) return
+                save()
+                themePrefs.edit { putInt("themeMode", position) }
+                AppCompatDelegate.setDefaultNightMode(when (position) {
+                    1 -> AppCompatDelegate.MODE_NIGHT_NO
+                    2 -> AppCompatDelegate.MODE_NIGHT_YES
+                    else -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
+                })
+                ThemeEngine.refreshTheme()
+            }
+        }
+        controls.add(themeMode)
+        action(settings, R.id.pvzce_green, R.string.pvzce_green) {
+            ThemeEngine.applyAndSave(this, 0xFF2E7D32.toInt())
+            ThemeEngine.applyAndSaveDark(this, 0xFFA5D6A7.toInt())
+        }
+
+        val advanced = page(R.id.pvzce_page_advanced)
+        text(advanced, R.string.pvzce_advanced_hint)
+        pvzce = FCLCheckBox(this).apply {
+            id = R.id.pvzce_profile
+            setText(R.string.pvzce_mode)
+            isChecked = prefs.getBoolean("pvzce", fresh)
+            advanced.addView(this)
+            controls.add(this)
+        }
+        field(advanced, "classpath", R.id.pvzce_classpath, R.string.pvzce_classpath, multiline = true)
+        field(advanced, "main", R.id.pvzce_main, R.string.pvzce_main_class, if (fresh) PvzceProfile.MAIN_CLASS else "")
+        field(advanced, "jvm", R.id.pvzce_jvm, R.string.pvzce_jvm, if (fresh) "-Xmx1024m" else "-Xmx512m", true)
+        field(advanced, "args", R.id.pvzce_args, R.string.pvzce_args, multiline = true)
+        field(advanced, "work", R.id.pvzce_work, R.string.pvzce_work, File(filesDir, if (fresh) "games/pvzce" else "games").absolutePath)
+        action(advanced, R.id.pvzce_save, R.string.pvzce_save) { save(); status.setText(R.string.pvzce_saved) }
+
+        val logs = page(R.id.pvzce_page_logs)
+        text(logs, R.string.pvzce_log_hint)
+        action(logs, R.id.pvzce_refresh_logs, R.string.pvzce_refresh_logs) { refreshLogs() }
+        action(logs, R.id.pvzce_export_logs, R.string.pvzce_export_logs) {
+            if (logFile.isFile) logExporter.launch("pvzce-latest.log")
+            else showError(IllegalStateException(getString(R.string.pvzce_no_logs)))
+        }
+        logText = text(logs, R.string.pvzce_no_logs).apply {
+            id = R.id.pvzce_log_text
+            typeface = Typeface.MONOSPACE
+            setTextIsSelectable(true)
+        }
+        launchButton = findViewById(R.id.pvzce_start)
+        listOf(R.id.pvzce_start, R.id.pvzce_jar_card, R.id.pvzce_render_card).forEach { id ->
+            findViewById<Button>(id).apply { minimumHeight = dp(if (id == R.id.pvzce_start) 56 else 48); isSingleLine = false }
+        }
+        launchButton.setOnClickListener { startJava() }
+        controls.add(launchButton)
+        findViewById<Button>(R.id.pvzce_jar_card).also { card ->
+            card.setOnClickListener { if (!busy) { importMods = false; save(); importer.launch(arrayOf("*/*")) } }
+            controls.add(card)
+        }
+        findViewById<Button>(R.id.pvzce_render_card).setOnClickListener { selectPage(2) }
+        navIds.forEachIndexed { index, id -> findViewById<View>(id).setOnClickListener { selectPage(index) } }
+        if (savedInstanceState != null) {
+            pvzce.isChecked = savedInstanceState.getBoolean("pvzce")
+            for (key in fields.keys) savedInstanceState.getString("field_$key")?.let { fields.getValue(key).setText(it) }
+        }
+        fields.getValue("jar").doAfterTextChanged { refreshSummary() }
+        pvzce.setOnCheckedChangeListener { _, _ -> refreshSummary() }
+        initialized = true
+        if (fresh) { runCatching { PvzceProfile.prepareDirectory(File(fields.getValue("work").text.toString())) }.onFailure { showError(it) }; save() }
+        selectPage(savedInstanceState?.getInt("page") ?: prefs.getInt("page", 0))
+        ThemeEngine.addRefreshListener(themeRefresh)
+        refreshShell()
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (busy) return
+                if (selectedPage != 0) selectPage(0) else { save(); finish() }
+            }
+        })
+    }
+
+    private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
+
+    private fun selectPage(index: Int) {
+        selectedPage = index.coerceIn(pages.indices)
+        pages.forEachIndexed { i, page -> page.visibility = if (i == selectedPage) View.VISIBLE else View.GONE }
+        navIds.forEachIndexed { i, id -> findViewById<FCLMenuView>(id).isSelected = i == selectedPage }
+        refreshNavigation()
+        findViewById<FCLDynamicIsland>(R.id.pvzce_title).apply {
+            contentDescription = getString(titles[selectedPage])
+            refresh(getString(titles[selectedPage]))
+        }
+        if (selectedPage == 4) refreshLogs()
+    }
+
+    private fun refreshShell() {
+        if (!initialized) return
+        val theme = ThemeEngine.getTheme()
+        findViewById<View>(R.id.pvzce_background).background = theme.getBackground(this)
+        findViewById<View>(R.id.pvzce_left_menu).background = GradientDrawable().apply {
+            setColor(theme.getColor()); cornerRadius = dp(8).toFloat()
+        }
+        val surface = getColor(R.color.pvzce_surface)
+        findViewById<View>(R.id.pvzce_right_menu).background = GradientDrawable().apply {
+            setColor(surface); cornerRadius = dp(8).toFloat()
+        }
+        pages.forEach { it.background = GradientDrawable().apply { setColor(surface); cornerRadius = dp(8).toFloat() } }
+        refreshNavigation()
+        fields.values.forEach { it.setTextColor(theme.getColor2()); it.setHintTextColor(theme.getColor2()) }
+        pvzce.setTextColor(theme.getColor2())
+        refreshSummary()
+    }
+
+    private fun refreshNavigation() {
+        val theme = ThemeEngine.getTheme()
+        labelIds.forEachIndexed { index, id ->
+            findViewById<TextView>(id).apply {
+                val selected = index == selectedPage
+                setTypeface(null, if (selected) Typeface.BOLD else Typeface.NORMAL)
+                setTextColor(if (selected) theme.getColor() else theme.autoTint)
+                background = GradientDrawable().apply {
+                    setColor(if (selected) theme.autoTint else android.graphics.Color.TRANSPARENT)
+                    cornerRadius = dp(8).toFloat()
+                }
+            }
+        }
+    }
+
+    private fun refreshSummary() {
+        if (!initialized) return
+        val jar = fields.getValue("jar").text.toString()
+        findViewById<TextView>(R.id.pvzce_summary).text =
+            (if (pvzce.isChecked) "PVZCE" else "通用 Java") + "\n" +
+                (if (jar.isBlank()) "尚未选择游戏 JAR" else File(jar).name)
+        launchButton.setText(if (pvzce.isChecked) R.string.pvzce_launch else R.string.pvzce_generic_launch)
+    }
+
+    private fun browseGameData() {
+        runCatching {
+            val work = File(fields.getValue("work").text.toString())
+            require(work.isAbsolute && work.isDirectory) { "工作目录不存在，请先应用预设或设置有效目录" }
+            save()
+            fileLauncher.launch(FileBrowser.Builder(this)
+                .setLibMode(LibMode.FILE_BROWSER).setSelectionMode(SelectionMode.SINGLE_SELECTION)
+                .setInitDir(work.absolutePath).setExternalSelection(false).setGameDirectoryMode(true).create())
+        }.onFailure { showError(it) }
+    }
+
+    private fun refreshLogs() {
+        if (busy) return
+        lifecycleScope.launch {
+            val result = withContext(Dispatchers.IO) { runCatching {
+                if (!logFile.isFile) getString(R.string.pvzce_no_logs) else {
+                    java.io.RandomAccessFile(logFile, "r").use { log ->
+                        log.seek((log.length() - 65536).coerceAtLeast(0))
+                        val bytes = ByteArray((log.length() - log.filePointer).toInt().coerceAtMost(65536))
+                        log.readFully(bytes)
+                        String(bytes, Charsets.UTF_8)
+                    }
+                }
+            } }
+            result.onSuccess { logText.text = it }.onFailure { logText.text = "读取失败：${it.message}" }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // FCLApp assigns its current Activity after onCreate; refresh dynamic dark colors now.
+        ThemeEngine.refreshTheme()
+    }
+
+    override fun onPause() {
+        if (initialized) save()
+        super.onPause()
+    }
+
+    override fun onDestroy() {
+        ThemeEngine.removeRefreshListener(themeRefresh)
+        super.onDestroy()
     }
 
     private fun validateContentDirectory(): Boolean = runCatching {
@@ -161,9 +418,9 @@ class GenericLauncherActivity : FCLActivity() {
     }.onFailure { showError(it) }.isSuccess
 
     private fun applyPvzcePreset() {
-        android.app.AlertDialog.Builder(this).setTitle("Apply PVZCE preset?")
-            .setMessage("Replace launch fields with PVZCE defaults? The selected JAR is kept. Existing game files are not moved or deleted.")
-            .setNegativeButton("Cancel", null).setPositiveButton("Apply") { _, _ ->
+        androidx.appcompat.app.AlertDialog.Builder(this).setTitle(R.string.pvzce_preset)
+            .setMessage(R.string.pvzce_preset_message)
+            .setNegativeButton(R.string.pvzce_cancel, null).setPositiveButton(R.string.pvzce_apply) { _, _ ->
                 runCatching {
                     val work = PvzceProfile.prepareDirectory(File(filesDir, "games/pvzce"))
                     pvzce.isChecked = true
@@ -178,7 +435,7 @@ class GenericLauncherActivity : FCLActivity() {
                         it.id == RendererManager.RENDERER_VIRGL.id
                     }.coerceAtLeast(0))
                     save()
-                    status.text = "PVZCE preset ready. Import your real shadow JAR and install jre25. Native access and --gameDir are supplied at launch. Requires OpenGL 3.2 core; VirGL is a starting choice, device compatibility is unverified."
+                    status.text = getString(R.string.pvzce_ready)
                 }.onFailure { showError(it) }
             }.show()
     }
@@ -187,6 +444,7 @@ class GenericLauncherActivity : FCLActivity() {
         getSharedPreferences("generic_launch", MODE_PRIVATE).edit {
             fields.forEach { (key, value) -> putString(key, value.text.toString()) }
             putBoolean("pvzce", pvzce.isChecked)
+            putInt("page", selectedPage)
             putString("runtime", runtimes.selectedItem.toString())
             putString("renderer", RendererManager.rendererList[renderers.selectedItemPosition].id)
             putString("lwjgl", lwjgl.selectedItem.toString())
@@ -197,13 +455,14 @@ class GenericLauncherActivity : FCLActivity() {
         outState.putBoolean("pvzce", pvzce.isChecked)
         outState.putBoolean("import_mods", importMods)
         outState.putString("pack_type", packType)
-        outState.putStringArrayList("field_values", ArrayList(fields.values.map { it.text.toString() }))
+        outState.putInt("page", selectedPage)
+        fields.forEach { (key, value) -> outState.putString("field_$key", value.text.toString()) }
         super.onSaveInstanceState(outState)
     }
 
     private fun showError(error: Throwable) {
-        status.text = "Error: ${error.message ?: error}"
-        android.app.AlertDialog.Builder(this).setTitle("PVZCE Launcher").setMessage(status.text).setPositiveButton("OK", null).show()
+        status.text = "操作失败：${error.message ?: error}"
+        androidx.appcompat.app.AlertDialog.Builder(this).setTitle(R.string.pvzce_error).setMessage(status.text).setPositiveButton(R.string.pvzce_ok, null).show()
     }
 
     private fun install() {
@@ -212,7 +471,7 @@ class GenericLauncherActivity : FCLActivity() {
         installButton.isEnabled = false
         launchButton.isEnabled = false
         val runtime = runtimes.selectedItem.toString()
-        status.text = "Installing $runtime and bundled graphics/AWT support…"
+        status.text = "正在安装 $runtime 与随附图形 / AWT 组件…"
         lifecycleScope.launch {
             val result = withContext(Dispatchers.IO) {
                 runCatching {
@@ -223,7 +482,7 @@ class GenericLauncherActivity : FCLActivity() {
                     RuntimeUtils.installJna(this@GenericLauncherActivity, FCLPath.JNA_PATH, "app_runtime/jna")
                 }
             }
-            result.onSuccess { status.text = "Installed $runtime. Configure your JAR/classpath, then launch." }.onFailure { showError(it) }
+            result.onSuccess { status.text = "已安装 $runtime 及随附组件，可选择游戏 JAR 后启动。" }.onFailure { showError(it) }
             busy = false
             installButton.isEnabled = true
             launchButton.isEnabled = true

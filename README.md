@@ -6,9 +6,9 @@
 
 ## 下载开发 APK
 
-**2026-10-14 已验证构建：[下载 arm64 APK 与校验记录（ZIP）](https://github.com/pvzce/PVZCELauncher/actions/runs/38586280525/artifacts/11905367976) · [成功运行记录](https://github.com/pvzce/PVZCELauncher/actions/runs/38586280525)**。源码提交为 [`4e76cce77e7a7a85792b98e6b7510f0ba3801370`](https://github.com/pvzce/PVZCELauncher/commit/4e76cce77e7a7a85792b98e6b7510f0ba3801370)；该下载包于北京时间 **2026-10-28 23:12** 到期。
+**2026-10-15 FCL 界面候选包：[下载 arm64 APK 与校验记录（ZIP）](https://github.com/pvzce/PVZCELauncher/actions/runs/38685683742/artifacts/11949812303) · [构建与 UI 检查记录](https://github.com/pvzce/PVZCELauncher/actions/runs/38685683742)**。源码为 [`9a461a099302558a20d492662ae03e708ff044bc`](https://github.com/pvzce/PVZCELauncher/commit/9a461a099302558a20d492662ae03e708ff044bc)；两个 APK、相关检查及最终 Manifest/签名验证已通过；**软件模拟器安装失败，四项 UI 测试未开始、没有截图，整轮工作流为 failure，开发分支尚未合并 main**。诊断与后续验证条件见下方交接文档。下载包于北京时间 **2026-10-29 13:20:52** 到期。
 
-打开 [GitHub Actions · PVZCE Android APK](https://github.com/pvzce/PVZCELauncher/actions/workflows/pvzce-build.yml)，选择成功的运行，在页面底部 **Artifacts** 下载 `PVZCE-Launcher-arm64-<完整提交 SHA>`，解压后安装 APK。下载通常需要登录 GitHub；artifact 保留 14 天，过期后可重新运行工作流。
+打开 [GitHub Actions · PVZCE Android APK](https://github.com/pvzce/PVZCELauncher/actions/workflows/pvzce-build.yml)，核对运行中 APK 构建和身份验证步骤的结果，并另看 UI 检查结论；在页面底部 **Artifacts** 下载 `PVZCE-Launcher-arm64-<完整提交 SHA>`，解压后安装 APK。下载通常需要登录 GitHub；artifact 保留 14 天，过期后可重新运行工作流。
 
 | APK | applicationId | 用途 |
 | --- | --- | --- |
@@ -17,17 +17,23 @@
 
 当前工作流构建 **arm64-v8a**，适合对应 ABI 的 Android 设备，minSdk 26（Android 8.0）。两种包均使用标准 Android Debug 签名，不是正式发行版；不同构建环境生成的 Debug 证书可能不同，不能保证直接覆盖之前手动构建的包。卸载会删除应用私有游戏数据，请先通过应用 DocumentsProvider 备份。
 
-下载包附带 `SHA256SUMS`、最终 Manifest、预检/签名结果和 `BUILD_INFO.txt`；请用其中的源码 SHA 识别构建。未成功的运行不会被标为可用 APK。
+下载包附带 `SHA256SUMS`、最终 Manifest、预检/签名结果和 `BUILD_INFO.txt`；请用其中的源码 SHA 识别构建。APK 产物在后续模拟器步骤之前上传，因此 APK 构建通过与整轮工作流 / UI 通过分别记录。
 
 ## 启动 PVZCE
 
-1. 打开启动器，点击 **Apply PVZCE preset**。它选择 Android JRE 25、patched LWJGL 3.4.1、游戏自带的 KnotClient 入口和应用私有游戏目录。VirGL 是可调整的渲染起点，PVZCE 需要 OpenGL 3.2 core。
-2. 从真实 PVZCE 工程运行 `./gradlew :pvzce-game:shadowJar` 得到游戏 fat JAR，再用 **Import JAR / dependency files** 导入。预设会检查必要的游戏/加载器条目，不需要 Minecraft 账户或版本 JSON。
-3. 点击 **Install / repair selected bundled runtime**。JRE、LWJGL 等从 APK 内置资产安装，不会下载游戏。
-4. 根据需要导入内容：模组用 **Import PVZCE mods (JAR)**；资源包、数据包用对应 **directory** 按钮，选择直接包含 `assets/` 或 `data/` 的目录。当前游戏读取目录包，不把 ZIP 当作已启用的包。代码模组需要重启，资源/数据包由游戏界面启用与重载。
-5. 点击 **Validate and launch**。`--enable-native-access=ALL-UNNAMED` 和唯一的 `--gameDir` 由预设生成；额外 JVM/程序参数每行填写一个完整参数。
+1. 首次打开默认使用 **PVZCE 预设**：Android JRE 25、patched LWJGL 3.4.1、游戏自带 KnotClient 与私有游戏目录。已有配置不会被覆盖；主页的 **恢复 PVZCE 启动预设** 可在确认后重设启动字段，保留已选 JAR。
+2. 从真实 PVZCE 工程执行 `./gradlew :pvzce-game:shadowJar` 获得游戏 fat JAR，再点击右侧 **选择 / 导入游戏 JAR**。没有内置或虚构的游戏下载地址，也不需要 Minecraft 账号或版本 JSON。
+3. 右侧 **运行时与渲染** 打开设置页，点击 **安装 / 修复所选运行组件**，从 APK 安装 JRE、LWJGL 与 AWT/JNA 支持；PVZCE 需要 OpenGL 3.2 core，VirGL 是可调整的初始选择，设备兼容性尚未验证。
+4. 左侧 **内容** 页提供模组 JAR、资源包目录、数据包目录导入。包目录应直接包含 `assets/` 或 `data/`；当前不把 ZIP 当成已启用的包。**浏览游戏数据** 使用原 FCL 文件浏览器打开实际工作目录；其中 **游戏目录** 快捷键返回该配置路径，隐藏无关的存储与重复确认入口。代码模组需要重启，包在游戏内启用或重载。
+5. 点击右侧 **启动游戏**，执行已有校验并进入独立 Android JVM。错误会显示实际原因，未提供有效游戏 JAR 时不会显示启动成功。
+6. 左侧 **高级** 保留 JAR/classpath、主类、逐行 JVM/游戏参数、工作目录配置；取消 **使用 PVZCE 启动预设校验** 可运行自行提供的通用 Java 程序。**保存配置** 和切后台会持久化配置，页面与控件状态支持重建恢复。
+7. **日志** 页读取实际 `latest_jar_executor.log` 末尾 64 KiB，可刷新或通过系统文件选择器导出完整日志；不会上传到网络。
 
-游戏数据保存在当前包的 `files/games/pvzce`：`mods/`、`resourcepacks/`、`datapacks/`、`config/`、`saves/`。可通过既有 DocumentsProvider 管理和备份；导入不覆盖同名内容。
+界面复用 FCL 的侧边菜单、启动卡片布局、动态标题、按钮、输入框、勾选框、文件浏览器与 ThemeEngine；没有重新开启旧 Main/Splash/账号初始化链路。默认主题为植物绿：浅色 `#2E7D32`，暗色 `#A5D6A7`；设置中可跟随系统、选择浅/深色或恢复植物绿，已有自定义颜色会保留。账号、Minecraft 下载/更新、整合包平台、无实现的大厅/控制器等按钮不出现在此界面。
+
+游戏内 **Keys** 面板、工具 1–5、节奏 S/D/F/J/K/L、聊天 T 与 /、中文 BMP 文字提交、鼠标/滚轮行为保持原实现。高级运行路径和 Java 25、native-access、唯一 `--gameDir`、Android 图形/音频/SDL/Cacio 后端保持不变。
+
+本轮 UI 实施与验证记录见 [PVZCE_UI_HANDOFF.md](docs/PVZCE_UI_HANDOFF.md)。
 
 ## 游戏操作与功能边界
 
@@ -46,7 +52,8 @@ bash tools/check_pvzce_profile.sh
 bash tools/check_generic_java.sh
 python3 tools/audit_generic_launcher.py
 bash gradlew :FCL:testFordebugUnitTest --tests com.tungsten.fcl.generic.JavaLaunchSpecTest \
-  :FCL:checkstyle :FCL:assembleDebug :FCL:assembleFordebug \
+  :FCL:checkstyle :FCL:compileFordebugAndroidTestKotlin \
+  :FCL:assembleDebug :FCL:assembleFordebug \
   -Darch=arm64 --no-daemon --console=plain --max-workers=2
 ```
 

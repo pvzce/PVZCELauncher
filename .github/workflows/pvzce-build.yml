@@ -2,7 +2,7 @@ name: PVZCE Android APK
 
 on:
   push:
-    branches: [dev/pvzl-generic-java-20261014-01]
+    branches: [dev/pvzl-generic-java-20261014-01, 'dev/pvzl-fcl-ui-*']
     paths-ignore: ['**/*.md']
   workflow_dispatch:
 
@@ -11,7 +11,7 @@ permissions:
 
 concurrency:
   group: pvzce-apk-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -27,9 +27,10 @@ jobs:
       - name: Configure writable build caches
         shell: bash
         run: |
-          printf 'GRADLE_USER_HOME=%s/gradle\nANDROID_USER_HOME=%s/android-user\n' \
-            "$RUNNER_TEMP" "$RUNNER_TEMP" >> "$GITHUB_ENV"
-          mkdir -p "$RUNNER_TEMP/gradle" "$RUNNER_TEMP/android-user"
+          printf 'GRADLE_USER_HOME=%s/gradle\nANDROID_USER_HOME=%s/android-user\nANDROID_AVD_HOME=%s/android-user/avd\n' \
+            "$RUNNER_TEMP" "$RUNNER_TEMP" "$RUNNER_TEMP" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/gradle" "$RUNNER_TEMP/android-user/avd"
+          printf '%s/platform-tools\n%s/emulator\n' "$ANDROID_HOME" "$ANDROID_HOME" >> "$GITHUB_PATH"
 
       - name: Set up build JDK 17
         uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
@@ -49,7 +50,7 @@ jobs:
           yes | "$sdkmanager" --licenses > "$RUNNER_TEMP/android-licenses.log"
           set -o pipefail
           "$sdkmanager" --sdk_root="$ANDROID_HOME" \
-            'platforms;android-35' 'build-tools;35.0.0' \
+            'platform-tools' 'platforms;android-35' 'build-tools;35.0.0' \
             'ndk;27.0.12077973' 'cmake;3.22.1'
 
       - name: Check PVZCE configuration and input contracts
@@ -66,7 +67,8 @@ jobs:
         run: |
           bash gradlew :FCL:testFordebugUnitTest \
             --tests com.tungsten.fcl.generic.JavaLaunchSpecTest \
-            :FCL:checkstyle :FCL:assembleDebug :FCL:assembleFordebug \
+            :FCL:checkstyle :FCL:compileFordebugAndroidTestKotlin \
+            :FCL:assembleDebug :FCL:assembleFordebug \
             -Darch=arm64 --no-daemon --console=plain --max-workers=2 \
             2>&1 | tee "$RUNNER_TEMP/pvzce-build.log"
 
@@ -119,6 +121,115 @@ jobs:
         run: |
           printf '### PVZCE development APKs\n\n[Download APKs and verification records](%s)\n\nSource: `%s`\n\nThese builds are not Android game compatibility certification.\n' \
             "$ARTIFACT_URL" "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Run actual Android UI smoke tests and capture screenshots
+        shell: bash
+        run: |
+          # Build before boot so native compilation does not compete with software emulation.
+          bash gradlew :FCL:assembleFordebug :FCL:assembleFordebugAndroidTest -Darch=x86_64 \
+            --no-daemon --console=plain --max-workers=2
+          sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          "$sdkmanager" 'emulator' 'system-images;android-30;default;x86_64'
+          # Probe actual accelerator access; read/write mode bits alone are insufficient.
+          accel=on
+          if ! "$ANDROID_HOME/emulator/emulator" -accel-check > "$RUNNER_TEMP/acceleration.txt" 2>&1; then
+            accel=off
+            export ANDROID_I_WANT_MY_TCG=yes
+            echo 'KVM unavailable: trying documented, unsupported slow software emulation; no host permissions changed.'
+          fi
+          cat "$RUNNER_TEMP/acceleration.txt"
+          df -h "$RUNNER_TEMP"
+          free -h
+          echo no | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd \
+            --name pvzce-ui --package 'system-images;android-30;default;x86_64' --device pixel_2 --force
+          printf '\ndisk.dataPartition.size=4G\nhw.ramSize=2048\n' >> "$ANDROID_AVD_HOME/pvzce-ui.avd/config.ini"
+          trap 'tail -n 120 "$RUNNER_TEMP/emulator.log" 2>/dev/null || true' ERR
+          "$ANDROID_HOME/emulator/emulator" -avd pvzce-ui -no-window -no-audio \
+            -no-boot-anim -no-snapshot -memory 2048 -cores 1 -accel "$accel" \
+            -gpu swiftshader -feature -Vulkan -skin 720x1280 -dpi-device 320 \
+            -camera-back none -camera-front none \
+            > "$RUNNER_TEMP/emulator.log" 2>&1 &
+          emulator_pid=$!
+          timeout 30 adb start-server
+          boot_deadline=$((SECONDS + 900))
+          booted=false
+          while [ "$SECONDS" -lt "$boot_deadline" ]; do
+            if ! kill -0 "$emulator_pid" 2>/dev/null; then
+              cat "$RUNNER_TEMP/emulator.log"
+              exit 1
+            fi
+            if timeout 5 adb get-state 2>/dev/null | grep -qx device; then
+              if [ "$(timeout 5 adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = 1 ]; then
+                booted=true
+                break
+              fi
+            fi
+            sleep 2
+          done
+          test "$booted" = true
+          adb shell input keyevent 82
+          adb shell settings put global window_animation_scale 0
+          adb shell settings put global transition_animation_scale 0
+          adb shell settings put global animator_duration_scale 0
+          # sys.boot_completed can remain set while system_server restarts. Require both services.
+          ready_deadline=$((SECONDS + 300))
+          ready=0
+          while [ "$SECONDS" -lt "$ready_deadline" ] && [ "$ready" -lt 3 ]; do
+            if timeout 15 adb shell cmd package path android | grep -q '^package:' && \
+               timeout 15 adb shell am get-current-user | tr -d '\r' | grep -qx 0; then
+              ready=$((ready + 1))
+            else
+              ready=0
+            fi
+            sleep 5
+          done
+          test "$ready" -eq 3
+          timeout 30 adb shell df -h /data | tee "$RUNNER_TEMP/device-storage.txt"
+          # Avoid ddmlib streaming install-write; retain the actual Package Manager result.
+          timeout 600 adb install --no-streaming --no-incremental -r \
+            FCL/build/outputs/apk/fordebug/*-x86_64.apk 2>&1 | tee "$RUNNER_TEMP/app-install.txt"
+          timeout 180 adb install --no-streaming --no-incremental -r \
+            FCL/build/outputs/apk/androidTest/fordebug/*.apk 2>&1 | tee "$RUNNER_TEMP/test-install.txt"
+          timeout 1200 adb shell am instrument -w \
+            -e class com.tungsten.fcl.generic.PvzceLauncherUiTest \
+            -e additionalTestOutputDir /sdcard/Android/media/com.pvzce.pvzl.debug/additional_test_output \
+            com.pvzce.pvzl.debug.test/androidx.test.runner.AndroidJUnitRunner \
+            2>&1 | tee "$RUNNER_TEMP/pvzce-ui-tests.log"
+          grep -Eq '^OK \(4 tests\)' "$RUNNER_TEMP/pvzce-ui-tests.log"
+          ! grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' "$RUNNER_TEMP/pvzce-ui-tests.log"
+
+      - name: Collect actual emulator screenshots and test results
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p ui-artifacts
+          timeout 20 adb pull /sdcard/Android/data/com.pvzce.pvzl.debug/files/ui-smoke ui-artifacts/ || true
+          timeout 30 adb pull /sdcard/Android/media/com.pvzce.pvzl.debug/additional_test_output ui-artifacts/ || true
+          timeout 20 adb logcat -b main -b system -b crash -d -t 3000 > ui-artifacts/logcat.txt || true
+          timeout 15 adb shell service list > ui-artifacts/device-services.txt || true
+          cp -R FCL/build/outputs/androidTest-results ui-artifacts/ 2>/dev/null || true
+          cp -R FCL/build/reports/androidTests ui-artifacts/ 2>/dev/null || true
+          cp -R FCL/build/outputs/connected_android_test_additional_output ui-artifacts/ 2>/dev/null || true
+          for record in emulator.log acceleration.txt pvzce-ui-tests.log device-storage.txt app-install.txt test-install.txt; do
+            cp "$RUNNER_TEMP/$record" ui-artifacts/ 2>/dev/null || true
+          done
+
+      - name: Require actual screenshots after successful UI tests
+        if: success()
+        shell: bash
+        run: |
+          for name in home-light home-dark content-light settings-light advanced-light logs-light game-data-browser missing-jar-error; do
+            test -n "$(find ui-artifacts -type f -name "$name.png" -size +1k -print -quit)"
+          done
+
+      - name: Upload UI test evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: PVZCE-UI-smoke-${{ github.sha }}
+          path: ui-artifacts/
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Upload diagnostics if the build fails
         if: failure()
