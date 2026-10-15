@@ -67,7 +67,8 @@ jobs:
         run: |
           bash gradlew :FCL:testFordebugUnitTest \
             --tests com.tungsten.fcl.generic.JavaLaunchSpecTest \
-            :FCL:checkstyle :FCL:assembleDebug :FCL:assembleFordebug \
+            :FCL:checkstyle :FCL:compileFordebugAndroidTestKotlin \
+            :FCL:assembleDebug :FCL:assembleFordebug \
             -Darch=arm64 --no-daemon --console=plain --max-workers=2 \
             2>&1 | tee "$RUNNER_TEMP/pvzce-build.log"
 
@@ -125,23 +126,43 @@ jobs:
         shell: bash
         run: |
           sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
-          "$sdkmanager" 'emulator' 'system-images;android-30;google_apis;x86_64'
-          # GitHub's hosted Linux runner exposes KVM. Do not alter host permissions.
-          test -r /dev/kvm && test -w /dev/kvm
+          "$sdkmanager" 'emulator' 'system-images;android-30;default;x86_64'
+          # Probe actual accelerator access; read/write mode bits alone are insufficient.
+          accel=on
+          if ! "$ANDROID_HOME/emulator/emulator" -accel-check > "$RUNNER_TEMP/acceleration.txt" 2>&1; then
+            accel=off
+            export ANDROID_I_WANT_MY_TCG=yes
+            echo 'KVM unavailable: trying documented, unsupported slow software emulation; no host permissions changed.'
+          fi
+          cat "$RUNNER_TEMP/acceleration.txt"
+          df -h "$RUNNER_TEMP"
+          free -h
           echo no | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd \
-            --name pvzce-ui --package 'system-images;android-30;google_apis;x86_64' --device pixel_2 --force
-          # Keep CI userdata bounded; use the currently documented software GLES backend.
+            --name pvzce-ui --package 'system-images;android-30;default;x86_64' --device pixel_2 --force
           printf '\ndisk.dataPartition.size=2G\nhw.ramSize=2048\n' >> "$ANDROID_AVD_HOME/pvzce-ui.avd/config.ini"
           trap 'tail -n 120 "$RUNNER_TEMP/emulator.log" 2>/dev/null || true' ERR
           "$ANDROID_HOME/emulator/emulator" -avd pvzce-ui -no-window -no-audio \
-            -no-boot-anim -no-snapshot -memory 2048 -gpu swiftshader -feature -Vulkan \
-            -camera-back none -camera-front none > "$RUNNER_TEMP/emulator.log" 2>&1 &
-          timeout 180 adb wait-for-device
-          for attempt in $(seq 1 120); do
-            if [ "$(adb shell getprop sys.boot_completed | tr -d '\r')" = 1 ]; then break; fi
+            -no-boot-anim -no-snapshot -memory 2048 -cores 1 -accel "$accel" \
+            -gpu swiftshader -feature -Vulkan -camera-back none -camera-front none \
+            > "$RUNNER_TEMP/emulator.log" 2>&1 &
+          emulator_pid=$!
+          timeout 30 adb start-server
+          boot_deadline=$((SECONDS + 900))
+          booted=false
+          while [ "$SECONDS" -lt "$boot_deadline" ]; do
+            if ! kill -0 "$emulator_pid" 2>/dev/null; then
+              cat "$RUNNER_TEMP/emulator.log"
+              exit 1
+            fi
+            if timeout 5 adb get-state 2>/dev/null | grep -qx device; then
+              if [ "$(timeout 5 adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = 1 ]; then
+                booted=true
+                break
+              fi
+            fi
             sleep 2
           done
-          test "$(adb shell getprop sys.boot_completed | tr -d '\r')" = 1
+          test "$booted" = true
           adb shell input keyevent 82
           adb shell settings put global window_animation_scale 0
           adb shell settings put global transition_animation_scale 0
@@ -160,7 +181,7 @@ jobs:
           timeout 15 adb logcat -d > ui-artifacts/logcat.txt || true
           cp -R FCL/build/outputs/androidTest-results ui-artifacts/ 2>/dev/null || true
           cp -R FCL/build/reports/androidTests ui-artifacts/ 2>/dev/null || true
-          cp "$RUNNER_TEMP/emulator.log" "$RUNNER_TEMP/pvzce-ui-tests.log" ui-artifacts/ 2>/dev/null || true
+          cp "$RUNNER_TEMP/emulator.log" "$RUNNER_TEMP/acceleration.txt" "$RUNNER_TEMP/pvzce-ui-tests.log" ui-artifacts/ 2>/dev/null || true
 
       - name: Upload UI test evidence
         if: always()

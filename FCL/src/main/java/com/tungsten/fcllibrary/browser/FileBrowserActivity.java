@@ -181,6 +181,16 @@ public class FileBrowserActivity extends FCLActivity implements View.OnClickList
             selectExternal.setVisibility(View.GONE);
             openExternal.setVisibility(View.GONE);
         }
+        if (fileBrowser.isGameDirectoryMode()) {
+            sharedDir.setVisibility(View.GONE);
+            privateDir.setText(R.string.pvzce_game_root);
+            selectExternal.setVisibility(View.GONE);
+            openExternal.setVisibility(View.GONE);
+            confirm.setVisibility(View.GONE);
+            for (FCLButton button : List.of(privateDir, manage, back, close)) {
+                button.setMinimumHeight(com.tungsten.fcllibrary.util.ConvertUtils.dip2px(this, 48));
+            }
+        }
 
         currentText.setOnClickListener(v -> {
             new EditDialog(this, path -> {
@@ -281,7 +291,9 @@ public class FileBrowserActivity extends FCLActivity implements View.OnClickList
             refreshList(Environment.getExternalStorageDirectory().toPath());
         }
         if (view == privateDir) {
-            if (getExternalCacheDir().getParent() != null) {
+            if (fileBrowser.isGameDirectoryMode()) {
+                refreshList(new File(fileBrowser.getInitDir()).toPath());
+            } else if (getExternalCacheDir().getParent() != null) {
                 refreshList(new File(getExternalCacheDir().getParent()).toPath());
             } else {
                 Toast.makeText(this, getString(R.string.file_browser_private_alert), Toast.LENGTH_SHORT).show();

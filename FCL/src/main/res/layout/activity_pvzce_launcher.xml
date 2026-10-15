@@ -24,7 +24,7 @@
 <com.tungsten.fcllibrary.component.view.FCLTextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="PVZCE Launcher" android:textStyle="bold" android:textSize="18sp" app:use_theme_color="true" />
 <com.tungsten.fcllibrary.component.view.FCLTextView android:id="@+id/pvzce_summary" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingVertical="8dp" android:maxLines="3" android:ellipsize="end" app:use_theme_color="true" />
 <ScrollView android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:layout_marginBottom="8dp">
-<com.tungsten.fcllibrary.component.view.FCLTextView android:id="@id/pvzce_status" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/pvzce_ready" android:textSize="12sp" app:use_theme_color="true" />
+<com.tungsten.fcllibrary.component.view.FCLTextView android:id="@id/pvzce_status" android:accessibilityLiveRegion="polite" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/pvzce_ready" android:textSize="12sp" app:use_theme_color="true" />
 </ScrollView>
 <com.tungsten.fcllibrary.component.view.FCLButton android:id="@+id/pvzce_jar_card" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:text="@string/pvzce_import_jar" android:textAllCaps="false" app:ripple="true" />
 <com.tungsten.fcllibrary.component.view.FCLButton android:id="@+id/pvzce_render_card" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:text="@string/pvzce_runtime_settings" android:textAllCaps="false" app:ripple="true" />

@@ -47,4 +47,5 @@
     <string name="pvzce_apply">应用</string>
     <string name="pvzce_working">正在处理，请稍候…</string>
     <string name="pvzce_generic_launch">启动 Java</string>
+    <string name="pvzce_game_root">游戏目录</string>
 </resources>

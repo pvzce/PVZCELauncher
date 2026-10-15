@@ -42,6 +42,7 @@ public class FileBrowser implements Serializable {
     }
 
     private boolean externalSelection = true;
+    private boolean gameDirectoryMode;
     private LibMode libMode = LibMode.FILE_BROWSER;
     private SelectionMode selectionMode = SelectionMode.SINGLE_SELECTION;
     private String initDir = Environment.getExternalStorageDirectory().getAbsolutePath();
@@ -53,6 +54,10 @@ public class FileBrowser implements Serializable {
 
     public FileBrowser(String title) {
         this.title = title;
+    }
+
+    public boolean isGameDirectoryMode() {
+        return gameDirectoryMode;
     }
 
     public boolean isExternalSelection() {
@@ -130,6 +135,12 @@ public class FileBrowser implements Serializable {
 
         public FileBrowser create() {
             return fileBrowser;
+        }
+
+        /** Show a game-root shortcut instead of unrelated storage/selection controls. */
+        public Builder setGameDirectoryMode(boolean gameDirectoryMode) {
+            fileBrowser.gameDirectoryMode = gameDirectoryMode;
+            return this;
         }
 
         public Builder setExternalSelection(boolean externalSelection) {

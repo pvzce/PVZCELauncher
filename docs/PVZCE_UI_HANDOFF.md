@@ -61,3 +61,13 @@
 操作进度 / 保存 / 导入结果改为右侧全局可滚动区域，避免切到设置或内容页后看不到处理状态。
 
 模拟器配置进一步限制 userdata 2GiB / RAM 2GiB，使用当前官方文档的软件 `-gpu swiftshader` 与关闭 Vulkan（仅影响 UI 测试模拟器，不改 APK 运行后端），并在失败时直接打印 emulator 日志，避免诊断只留在无法读取的运行机上。来源：https://developer.android.com/studio/run/emulator-acceleration 与 https://developer.android.com/studio/run/emulator-troubleshooting 。被替代的排队 run 不视为成功测试。
+
+## KVM 诊断与最终候选修正
+
+[run 38682279088](https://github.com/pvzce/PVZCELauncher/actions/runs/38682279088)，源码 `3f931dd86f982c49e2b3e4d4c0c5ddf54b97030b`：两个 arm64 APK 与检查再次成功；模拟器明确报告 `This user doesn't have permissions to use KVM (/dev/kvm)`，等待设备超时。因此没有运行 UI instrumentation，也没有截图。1339 字节的 UI-named artifact 是诊断日志，不是截图证据。磁盘与内存检查不是失败原因。
+
+不修改 KVM 权限或用户组。改为真实 `emulator -accel-check` 检查，缺少加速时尝试官方文档列出的 `-accel off` + `ANDROID_I_WANT_MY_TCG=yes` 软件模拟（官方说明不受支持且很慢）；采用已从 Google SDK 仓库 XML 核实存在的 Android30 AOSP default x86_64 镜像，启动最多等待 15 分钟，运行组件安装测试最多 10 分钟。不会把该尝试等同 KVM 可用或游戏设备兼容。参考：https://developer.android.com/studio/run/emulator-commandline#common 。
+
+复核文件浏览器原按钮后增加默认关闭的 `gameDirectoryMode` 配置，仅 PVZCE 的游戏数据浏览启用：隐藏共享目录 / 外部选择 / 重复确认；原私有目录快捷键改为返回真实配置工作目录的“游戏目录”，保留管理、返回和关闭。UI 测试会真实打开该 Activity，执行返回上层后再用快捷键回到游戏目录。新增选项不改变其他旧调用者的默认行为。
+
+在 Android 构建阶段先编译 `:FCL:compileFordebugAndroidTestKotlin`，这样即使模拟器环境不可用也能检验 UI 测试源码是否可编译。UI 标题补充无障碍说明、状态区域使用 polite live region。

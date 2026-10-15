@@ -156,6 +156,14 @@ class PvzceLauncherUiTest {
                 idle()
                 instrumentation.runOnMainSync {
                     assertTrue(browser.findViewById<TextView>(R.id.current_folder).text.toString().contains("games/pvzce"))
+                    assertEquals(View.GONE, browser.findViewById<View>(R.id.shared_dir).visibility)
+                    assertEquals(View.GONE, browser.findViewById<View>(R.id.confirm).visibility)
+                    assertEquals(browser.getString(R.string.pvzce_game_root), browser.findViewById<TextView>(R.id.private_dir).text.toString())
+                    // Back goes to games/, and the repurposed shortcut returns to the configured game root.
+                    browser.findViewById<View>(R.id.back).performClick()
+                    assertFalse(browser.findViewById<TextView>(R.id.current_folder).text.toString().endsWith("games/pvzce"))
+                    browser.findViewById<View>(R.id.private_dir).performClick()
+                    assertTrue(browser.findViewById<TextView>(R.id.current_folder).text.toString().endsWith("games/pvzce"))
                 }
                 screenshot("game-data-browser")
                 instrumentation.runOnMainSync { browser.finish() }
@@ -173,7 +181,7 @@ class PvzceLauncherUiTest {
                 assertFalse(activity.findViewById<View>(R.id.pvzce_jar_card).isEnabled)
             }
             var finished = false
-            val deadline = SystemClock.elapsedRealtime() + 180000
+            val deadline = SystemClock.elapsedRealtime() + 600000
             while (!finished && SystemClock.elapsedRealtime() < deadline) {
                 SystemClock.sleep(250)
                 scenario.onActivity { activity -> finished = activity.findViewById<View>(R.id.pvzce_start).isEnabled }

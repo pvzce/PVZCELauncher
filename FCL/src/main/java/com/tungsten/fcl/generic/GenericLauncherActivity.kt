@@ -319,7 +319,10 @@ class GenericLauncherActivity : FCLActivity() {
         pages.forEachIndexed { i, page -> page.visibility = if (i == selectedPage) View.VISIBLE else View.GONE }
         navIds.forEachIndexed { i, id -> findViewById<FCLMenuView>(id).isSelected = i == selectedPage }
         refreshNavigation()
-        findViewById<FCLDynamicIsland>(R.id.pvzce_title).refresh(getString(titles[selectedPage]))
+        findViewById<FCLDynamicIsland>(R.id.pvzce_title).apply {
+            contentDescription = getString(titles[selectedPage])
+            refresh(getString(titles[selectedPage]))
+        }
         if (selectedPage == 4) refreshLogs()
     }
 
@@ -372,7 +375,7 @@ class GenericLauncherActivity : FCLActivity() {
             save()
             fileLauncher.launch(FileBrowser.Builder(this)
                 .setLibMode(LibMode.FILE_BROWSER).setSelectionMode(SelectionMode.SINGLE_SELECTION)
-                .setInitDir(work.absolutePath).setExternalSelection(false).create())
+                .setInitDir(work.absolutePath).setExternalSelection(false).setGameDirectoryMode(true).create())
         }.onFailure { showError(it) }
     }
 

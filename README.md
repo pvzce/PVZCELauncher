@@ -24,7 +24,7 @@
 1. 首次打开默认使用 **PVZCE 预设**：Android JRE 25、patched LWJGL 3.4.1、游戏自带 KnotClient 与私有游戏目录。已有配置不会被覆盖；主页的 **恢复 PVZCE 启动预设** 可在确认后重设启动字段，保留已选 JAR。
 2. 从真实 PVZCE 工程执行 `./gradlew :pvzce-game:shadowJar` 获得游戏 fat JAR，再点击右侧 **选择 / 导入游戏 JAR**。没有内置或虚构的游戏下载地址，也不需要 Minecraft 账号或版本 JSON。
 3. 右侧 **运行时与渲染** 打开设置页，点击 **安装 / 修复所选运行组件**，从 APK 安装 JRE、LWJGL 与 AWT/JNA 支持；PVZCE 需要 OpenGL 3.2 core，VirGL 是可调整的初始选择，设备兼容性尚未验证。
-4. 左侧 **内容** 页提供模组 JAR、资源包目录、数据包目录导入。包目录应直接包含 `assets/` 或 `data/`；当前不把 ZIP 当成已启用的包。**浏览游戏数据** 使用原 FCL 文件浏览器打开实际工作目录。代码模组需要重启，包在游戏内启用或重载。
+4. 左侧 **内容** 页提供模组 JAR、资源包目录、数据包目录导入。包目录应直接包含 `assets/` 或 `data/`；当前不把 ZIP 当成已启用的包。**浏览游戏数据** 使用原 FCL 文件浏览器打开实际工作目录；其中 **游戏目录** 快捷键返回该配置路径，隐藏无关的存储与重复确认入口。代码模组需要重启，包在游戏内启用或重载。
 5. 点击右侧 **启动游戏**，执行已有校验并进入独立 Android JVM。错误会显示实际原因，未提供有效游戏 JAR 时不会显示启动成功。
 6. 左侧 **高级** 保留 JAR/classpath、主类、逐行 JVM/游戏参数、工作目录配置；取消 **使用 PVZCE 启动预设校验** 可运行自行提供的通用 Java 程序。**保存配置** 和切后台会持久化配置，页面与控件状态支持重建恢复。
 7. **日志** 页读取实际 `latest_jar_executor.log` 末尾 64 KiB，可刷新或通过系统文件选择器导出完整日志；不会上传到网络。
@@ -52,7 +52,8 @@ bash tools/check_pvzce_profile.sh
 bash tools/check_generic_java.sh
 python3 tools/audit_generic_launcher.py
 bash gradlew :FCL:testFordebugUnitTest --tests com.tungsten.fcl.generic.JavaLaunchSpecTest \
-  :FCL:checkstyle :FCL:assembleDebug :FCL:assembleFordebug \
+  :FCL:checkstyle :FCL:compileFordebugAndroidTestKotlin \
+  :FCL:assembleDebug :FCL:assembleFordebug \
   -Darch=arm64 --no-daemon --console=plain --max-workers=2
 ```
 
