@@ -6,9 +6,9 @@
 
 ## 下载开发 APK
 
-**2026-10-14 已验证构建：[下载 arm64 APK 与校验记录（ZIP）](https://github.com/pvzce/PVZCELauncher/actions/runs/38586280525/artifacts/11905367976) · [成功运行记录](https://github.com/pvzce/PVZCELauncher/actions/runs/38586280525)**。源码提交为 [`4e76cce77e7a7a85792b98e6b7510f0ba3801370`](https://github.com/pvzce/PVZCELauncher/commit/4e76cce77e7a7a85792b98e6b7510f0ba3801370)；该下载包于北京时间 **2026-10-28 23:12** 到期。
+**2026-10-15 FCL 界面候选包：[下载 arm64 APK 与校验记录（ZIP）](https://github.com/pvzce/PVZCELauncher/actions/runs/38683832870/artifacts/11949079177) · [构建与 UI 检查记录](https://github.com/pvzce/PVZCELauncher/actions/runs/38683832870)**。源码为 [`1df359548ca778985153d7764b82735c00f0425c`](https://github.com/pvzce/PVZCELauncher/commit/1df359548ca778985153d7764b82735c00f0425c)；两个 APK、相关检查及最终 Manifest/签名验证已通过，模拟器 UI 结果见下方交接文档。下载包于北京时间 **2026-10-29 13:01:51** 到期。
 
-打开 [GitHub Actions · PVZCE Android APK](https://github.com/pvzce/PVZCELauncher/actions/workflows/pvzce-build.yml)，选择成功的运行，在页面底部 **Artifacts** 下载 `PVZCE-Launcher-arm64-<完整提交 SHA>`，解压后安装 APK。下载通常需要登录 GitHub；artifact 保留 14 天，过期后可重新运行工作流。
+打开 [GitHub Actions · PVZCE Android APK](https://github.com/pvzce/PVZCELauncher/actions/workflows/pvzce-build.yml)，核对运行中 APK 构建和身份验证步骤的结果，并另看 UI 检查结论；在页面底部 **Artifacts** 下载 `PVZCE-Launcher-arm64-<完整提交 SHA>`，解压后安装 APK。下载通常需要登录 GitHub；artifact 保留 14 天，过期后可重新运行工作流。
 
 | APK | applicationId | 用途 |
 | --- | --- | --- |
@@ -17,7 +17,7 @@
 
 当前工作流构建 **arm64-v8a**，适合对应 ABI 的 Android 设备，minSdk 26（Android 8.0）。两种包均使用标准 Android Debug 签名，不是正式发行版；不同构建环境生成的 Debug 证书可能不同，不能保证直接覆盖之前手动构建的包。卸载会删除应用私有游戏数据，请先通过应用 DocumentsProvider 备份。
 
-下载包附带 `SHA256SUMS`、最终 Manifest、预检/签名结果和 `BUILD_INFO.txt`；请用其中的源码 SHA 识别构建。未成功的运行不会被标为可用 APK。
+下载包附带 `SHA256SUMS`、最终 Manifest、预检/签名结果和 `BUILD_INFO.txt`；请用其中的源码 SHA 识别构建。APK 产物在后续模拟器步骤之前上传，因此 APK 构建通过与整轮工作流 / UI 通过分别记录。
 
 ## 启动 PVZCE
 

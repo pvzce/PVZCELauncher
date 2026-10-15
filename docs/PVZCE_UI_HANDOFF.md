@@ -73,3 +73,60 @@
 在 Android 构建阶段先编译 `:FCL:compileFordebugAndroidTestKotlin`，这样即使模拟器环境不可用也能检验 UI 测试源码是否可编译。UI 标题补充无障碍说明、状态区域使用 polite live region。
 
 截图保存优先使用 instrumentation 的 `additionalTestOutputDir`，由 AGP 在卸载测试 APK 前自动带回 host；工作流额外收集 `connected_android_test_additional_output`，并在 UI 测试成功后检查八张实际 PNG 是否存在且大于 1KiB。应用外部私有文件只用于手动 runner 的回退，不把卸载后失效的 adb pull 当作可靠截图通道。参考 Android 工具源码 UtpConfigFactoryTest / AndroidDeviceDescriptor 对 additionalTestOutputDir 的定义。
+
+## 最终候选的独立 APK 核查
+
+源码完整 SHA：[`1df359548ca778985153d7764b82735c00f0425c`](https://github.com/pvzce/PVZCELauncher/commit/1df359548ca778985153d7764b82735c00f0425c)。
+实际工作流：[run 38683832870](https://github.com/pvzce/PVZCELauncher/actions/runs/38683832870)，job `116254495818`。
+
+以下步骤已成功，与后续 UI 步骤的结论分开记录：
+
+```bash
+bash tools/check_pvzce_profile.sh                       # 44 项
+bash tools/check_generic_java.sh                        # 43 项，含真实 Echo JVM
+python3 tools/audit_generic_launcher.py
+bash gradlew :FCL:testFordebugUnitTest --tests com.tungsten.fcl.generic.JavaLaunchSpecTest \
+  :FCL:checkstyle :FCL:compileFordebugAndroidTestKotlin \
+  :FCL:assembleDebug :FCL:assembleFordebug \
+  -Darch=arm64 --no-daemon --console=plain --max-workers=2
+```
+
+Gradle 相关单元测试 XML 经下载后独立读取：7 tests、0 failures、0 errors、0 skipped。Checkstyle、UI 测试 Kotlin 编译与两个 arm64 APK 构建通过。不是完整测试集通过。
+
+[实际 APK artifact 11949079177](https://github.com/pvzce/PVZCELauncher/actions/runs/38683832870/artifacts/11949079177)：358652997 字节，14 天保留，到期 `2026-10-29T05:01:51Z`（北京时间 2026-10-29 13:01:51）。已下载整个 ZIP，独立计算校验值，并与 GitHub digest、内部 SHA256SUMS 对照：
+
+| 文件 | SHA-256 |
+| --- | --- |
+| artifact ZIP | `d3fd33b8ffdc683c9c5c5899d8892ed51b101ad1e889ac815d3334d8f52b9692` |
+| debug APK | `7b894125eba11983d4043f20e1d260e236580f1f60d9c852342d56f99a8a5713` |
+| fordebug APK | `a631c2ae9b6a57eff534b7bae11451995bb462cb8aeb90b46001b94de40e32c0` |
+
+读取 ZIP 中的 BUILD_INFO.txt、JUnit XML、Manifest、签名、aapt2 badging 后重新执行：
+
+```bash
+python3 tools/audit_built_manifests.py debug-AndroidManifest.xml fordebug-AndroidManifest.xml
+```
+
+结果通过。实际包名分别 `com.pvzce.pvzl` / `com.pvzce.pvzl.debug`；document.provider、provider、crashreporterinitprovider、androidx-startup authorities 与动态接收器权限全部以各自 applicationId 为前缀且互不冲突；旧 Minecraft 组件保持禁用，独立入口仍为 GenericLauncherActivity。两份 APK 均为 Android Debug 签名。minSdk 26、targetSdk 34、compileSdk 35，versionCode 1339 / versionName 1.3.3.9。实际打开 APK ZIP 确认 native lib 只有 arm64-v8a，并存在 JRE25 的 bin-arm64 / universal / version 资产及 patched LWJGL3.4.1 JAR。没有声称已在同一设备上同时安装原 FCL 和这两个包。
+
+## 本轮文件与保留范围
+
+- `GenericLauncherActivity.kt`：FCL 组件、五页导航、配置、主题、全局状态与真实动作。
+- `activity_pvzce_launcher.xml` / `pvzce_action_button.xml`：原 FCL 风格布局、侧栏、右侧启动卡片。
+- `pvzce_ids.xml` / `pvzce_strings.xml` / `pvzce_colors.xml`（亮暗）：中文文案、稳定控件 ID、配色。
+- `colors.xml` / `ThemePreference.kt`：FCL 默认主题色。
+- `FileBrowser.java` / `FileBrowserActivity.java`：仅显式 gameDirectoryMode 调用启用的游戏目录快捷行为。
+- `PvzceLauncherUiTest.kt`：四项实际 Activity instrumentation；不是网页原型或合成截图。
+- `pvzce-build.yml`：原 wrapper 构建、相关检查、开发 APK、模拟器验证及证据上传。
+- `README.md` / `PVZCE_GAME_SUPPORT.md` / `PVZCE_GENERIC_LAUNCHER.md` / 本文：使用、许可、实现与验证交接。
+
+没有修改 JavaLaunchSpec/PvzceProfile/GenericJavaLauncher/GenericJvmActivity、输入桥、native 后端、Manifest、applicationId、许可证或游戏仓库。未覆盖旧 smoke 分支、未强推、未使用发布密钥。
+
+被替代的 run `38681984467`（仅排队）与 `38683580317`（构建未完成）均为 cancelled，不能算成功构建；`38680917302` 的最终结论也是 cancelled，APK 构建已完成但 UI 步骤失败后诊断收集被后续分支提交取消。
+
+
+## 软件模拟器实际结果与安装修复
+
+`38683832870` 最终为 failure。软件模拟器实际在 324888 ms 后报告 boot completed，但 ddmlib 安装 x86_64 APK 时 `Failed to install-write all apks`，其后 UTP 查询 activity/package 服务不可用。下载 [诊断 artifact 11950060615](https://github.com/pvzce/PVZCELauncher/actions/runs/38683832870/artifacts/11950060615) 并核对 ZIP digest `b68c203d8e8a2373af1b5f9c7ba2cef6e1f45713978977595b9788f3b69ea7a0`：实际测试 XML tests=0，PNG=0。没有用零 tests/零 failures 当作成功。
+
+修复限于测试环境：在启动模拟器之前用 wrapper 构建 x86_64 应用和测试 APK，避免与 TCG 争用 CPU；降低 UI 测试显示分辨率、userdata 4GiB；检查 activity/package 连续就绪；用官方 adb `install --no-streaming --no-incremental` 分别安装两个 APK，直接记录安装结果；`am instrument -w` 运行完全相同的四项 Activity 测试，必须出现 `OK (4 tests)` 且没有失败/进程崩溃标记，另有八张 PNG 检查。测试不被删除或跳过。直接 runner 的输出目录由 adb 在测试后收集，无自动卸载丢失问题。日志收集限定 main/system/crash，避免内核缓冲耗尽诊断超时。来源：https://android.googlesource.com/platform/packages/modules/adb/+/HEAD/docs/user/adb.1.md 和 https://developer.android.com/studio/test/command-line 。当前不推断安装失败根因是应用代码或磁盘，也不修改主机权限。

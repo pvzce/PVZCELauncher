@@ -47,7 +47,11 @@
 - Minecraft 账户、版本/资产下载、CurseForge/Modrinth/整合包平台、Minecraft 更新和原启动入口继续禁用。PVZCE 自己的模组/资源包不需要这些平台。现有 Cacio/AWT、SDL、JRE、渲染器和音频后端保留。
 - 未接入完整可编辑控制器、手柄映射、AWT 专用菜单或联网大厅；不根据 README 的功能描述推断游戏已有可用的 TCP 服务端。
 
-## 验证与剩余问题
+## 2026-10-15 UI 验证
+
+本轮基于 main `bc9639cca2ce67ea63e630cc982501b3d75f8f04`。游戏 master 重新只读核对，仍为上述 `e40b28edca5265b9537d22c9a220ce51bc68b2e7`。当前 UI 源码、APK、模拟器证据与是否合并以 [UI 交接](PVZCE_UI_HANDOFF.md) 的实际记录为准，不沿用前一日的构建结论。
+
+## 2026-10-14 历史验证与剩余问题
 
 - `bash tools/check_pvzce_profile.sh`：纯 Java 预检/输入检查通过，覆盖 runtime 版本、真实入口约定、必要条目缺失、参数冲突、目录生成、中文、非法 UTF-16、组合键/重复按下/取消释放、导入路径和 symlink。JAR/release 是明确标记的校验 fixture，不是游戏文件或 Android JRE，没有用它宣称真实游戏运行成功。
 - `bash tools/check_generic_java.sh`：原有通用启动行为检查通过，包含真实无害 Echo JVM 启动。
