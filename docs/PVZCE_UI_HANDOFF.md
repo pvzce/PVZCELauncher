@@ -59,3 +59,5 @@
 第二轮 [run 38680917302](https://github.com/pvzce/PVZCELauncher/actions/runs/38680917302)，源码 `304a0d654a0c231cb6e5705b8d8997ea4ce9c19b`：arm64 构建、相关检查和 Manifest/签名均通过；模拟器步骤失败，诊断收集卡在 adb 设备等待。给收集命令补上超时，分支内新提交取消已失效的旧运行，以获取诊断并继续修复。尚未因此合并 main。
 
 操作进度 / 保存 / 导入结果改为右侧全局可滚动区域，避免切到设置或内容页后看不到处理状态。
+
+模拟器配置进一步限制 userdata 2GiB / RAM 2GiB，使用当前官方文档的软件 `-gpu swiftshader` 与关闭 Vulkan（仅影响 UI 测试模拟器，不改 APK 运行后端），并在失败时直接打印 emulator 日志，避免诊断只留在无法读取的运行机上。来源：https://developer.android.com/studio/run/emulator-acceleration 与 https://developer.android.com/studio/run/emulator-troubleshooting 。被替代的排队 run 不视为成功测试。

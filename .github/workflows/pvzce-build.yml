@@ -130,9 +130,12 @@ jobs:
           test -r /dev/kvm && test -w /dev/kvm
           echo no | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd \
             --name pvzce-ui --package 'system-images;android-30;google_apis;x86_64' --device pixel_2 --force
+          # Keep CI userdata bounded; use the currently documented software GLES backend.
+          printf '\ndisk.dataPartition.size=2G\nhw.ramSize=2048\n' >> "$ANDROID_AVD_HOME/pvzce-ui.avd/config.ini"
+          trap 'tail -n 120 "$RUNNER_TEMP/emulator.log" 2>/dev/null || true' ERR
           "$ANDROID_HOME/emulator/emulator" -avd pvzce-ui -no-window -no-audio \
-            -no-boot-anim -no-snapshot -gpu swiftshader_indirect -camera-back none -camera-front none \
-            > "$RUNNER_TEMP/emulator.log" 2>&1 &
+            -no-boot-anim -no-snapshot -memory 2048 -gpu swiftshader -feature -Vulkan \
+            -camera-back none -camera-front none > "$RUNNER_TEMP/emulator.log" 2>&1 &
           timeout 180 adb wait-for-device
           for attempt in $(seq 1 120); do
             if [ "$(adb shell getprop sys.boot_completed | tr -d '\r')" = 1 ]; then break; fi
