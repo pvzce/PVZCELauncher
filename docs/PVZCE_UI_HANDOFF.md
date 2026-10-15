@@ -71,3 +71,5 @@
 复核文件浏览器原按钮后增加默认关闭的 `gameDirectoryMode` 配置，仅 PVZCE 的游戏数据浏览启用：隐藏共享目录 / 外部选择 / 重复确认；原私有目录快捷键改为返回真实配置工作目录的“游戏目录”，保留管理、返回和关闭。UI 测试会真实打开该 Activity，执行返回上层后再用快捷键回到游戏目录。新增选项不改变其他旧调用者的默认行为。
 
 在 Android 构建阶段先编译 `:FCL:compileFordebugAndroidTestKotlin`，这样即使模拟器环境不可用也能检验 UI 测试源码是否可编译。UI 标题补充无障碍说明、状态区域使用 polite live region。
+
+截图保存优先使用 instrumentation 的 `additionalTestOutputDir`，由 AGP 在卸载测试 APK 前自动带回 host；工作流额外收集 `connected_android_test_additional_output`，并在 UI 测试成功后检查八张实际 PNG 是否存在且大于 1KiB。应用外部私有文件只用于手动 runner 的回退，不把卸载后失效的 adb pull 当作可靠截图通道。参考 Android 工具源码 UtpConfigFactoryTest / AndroidDeviceDescriptor 对 additionalTestOutputDir 的定义。

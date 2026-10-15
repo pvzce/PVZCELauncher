@@ -45,7 +45,10 @@ class PvzceLauncherUiTest {
         // Let FCL's title/selection animation finish before taking a device screenshot.
         SystemClock.sleep(600)
         val image = requireNotNull(instrumentation.uiAutomation.takeScreenshot()) { "Device screenshot unavailable" }
-        val directory = File(context.getExternalFilesDir(null), "ui-smoke").apply { mkdirs() }
+        // AGP collects this directory before uninstalling APKs; app external files can disappear.
+        val output = InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")
+        val root = output?.let { File(it) } ?: context.getExternalFilesDir(null)
+        val directory = File(root, "ui-smoke").apply { mkdirs() }
         File(directory, "$name.png").outputStream().use { assertTrue(image.compress(Bitmap.CompressFormat.PNG, 100, it)) }
         image.recycle()
     }

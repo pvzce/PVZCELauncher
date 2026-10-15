@@ -181,7 +181,16 @@ jobs:
           timeout 15 adb logcat -d > ui-artifacts/logcat.txt || true
           cp -R FCL/build/outputs/androidTest-results ui-artifacts/ 2>/dev/null || true
           cp -R FCL/build/reports/androidTests ui-artifacts/ 2>/dev/null || true
+          cp -R FCL/build/outputs/connected_android_test_additional_output ui-artifacts/ 2>/dev/null || true
           cp "$RUNNER_TEMP/emulator.log" "$RUNNER_TEMP/acceleration.txt" "$RUNNER_TEMP/pvzce-ui-tests.log" ui-artifacts/ 2>/dev/null || true
+
+      - name: Require actual screenshots after successful UI tests
+        if: success()
+        shell: bash
+        run: |
+          for name in home-light home-dark content-light settings-light advanced-light logs-light game-data-browser missing-jar-error; do
+            test -n "$(find ui-artifacts -type f -name "$name.png" -size +1k -print -quit)"
+          done
 
       - name: Upload UI test evidence
         if: always()
