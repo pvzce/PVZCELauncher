@@ -24,6 +24,10 @@
 [资源管理器](https://github.com/pvzce/pvzce/blob/e40b28edca5265b9537d22c9a220ce51bc68b2e7/pvzce-game/src/main/java/com/pvzce/common/resource/PvzceResourceManager.java)、
 [键位](https://github.com/pvzce/pvzce/blob/e40b28edca5265b9537d22c9a220ce51bc68b2e7/pvzce-game/src/main/java/com/pvzce/client/input/KeyBindings.java)。
 
+## FCL 界面整合（2026-10-15）
+
+当前入口改用独立的 FCL 组件界面：主页 / 内容 / 设置 / 高级 / 日志，右侧导入 JAR、运行设置与启动。已有存储键 `generic_launch` 保持不变；仅首次使用默认 PVZCE。按钮到真实调用、主题与本轮验证详见 [UI 交接](PVZCE_UI_HANDOFF.md)。下节英文按钮名是此前版本用语，对应的新中文名称和位置以 README 为准。
+
 ## 使用
 
 1. 点击 **Apply PVZCE preset**，确认替换启动字段；保留已选 JAR，不迁移/删除已有游戏文件。通用模式仍可通过取消 PVZCE profile 使用。

@@ -16,8 +16,8 @@ import java.io.OutputStream
 @OptIn(kotlinx.serialization.InternalSerializationApi::class)
 @Serializable
 data class ThemePreference(
-    val color: Int = 0xFF7797CF.toInt(),
-    val colorDark: Int = 0xFF4E77C1.toInt(),
+    val color: Int = 0xFF2E7D32.toInt(),
+    val colorDark: Int = 0xFFA5D6A7.toInt(),
     val color2: Int = 0xFF000000.toInt(),
     val color2Dark: Int = 0xFFFFFFFF.toInt(),
     val fullscreen: Boolean = false,

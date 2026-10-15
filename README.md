@@ -21,13 +21,19 @@
 
 ## 启动 PVZCE
 
-1. 打开启动器，点击 **Apply PVZCE preset**。它选择 Android JRE 25、patched LWJGL 3.4.1、游戏自带的 KnotClient 入口和应用私有游戏目录。VirGL 是可调整的渲染起点，PVZCE 需要 OpenGL 3.2 core。
-2. 从真实 PVZCE 工程运行 `./gradlew :pvzce-game:shadowJar` 得到游戏 fat JAR，再用 **Import JAR / dependency files** 导入。预设会检查必要的游戏/加载器条目，不需要 Minecraft 账户或版本 JSON。
-3. 点击 **Install / repair selected bundled runtime**。JRE、LWJGL 等从 APK 内置资产安装，不会下载游戏。
-4. 根据需要导入内容：模组用 **Import PVZCE mods (JAR)**；资源包、数据包用对应 **directory** 按钮，选择直接包含 `assets/` 或 `data/` 的目录。当前游戏读取目录包，不把 ZIP 当作已启用的包。代码模组需要重启，资源/数据包由游戏界面启用与重载。
-5. 点击 **Validate and launch**。`--enable-native-access=ALL-UNNAMED` 和唯一的 `--gameDir` 由预设生成；额外 JVM/程序参数每行填写一个完整参数。
+1. 首次打开默认使用 **PVZCE 预设**：Android JRE 25、patched LWJGL 3.4.1、游戏自带 KnotClient 与私有游戏目录。已有配置不会被覆盖；主页的 **恢复 PVZCE 启动预设** 可在确认后重设启动字段，保留已选 JAR。
+2. 从真实 PVZCE 工程执行 `./gradlew :pvzce-game:shadowJar` 获得游戏 fat JAR，再点击右侧 **选择 / 导入游戏 JAR**。没有内置或虚构的游戏下载地址，也不需要 Minecraft 账号或版本 JSON。
+3. 右侧 **运行时与渲染** 打开设置页，点击 **安装 / 修复所选运行组件**，从 APK 安装 JRE、LWJGL 与 AWT/JNA 支持；PVZCE 需要 OpenGL 3.2 core，VirGL 是可调整的初始选择，设备兼容性尚未验证。
+4. 左侧 **内容** 页提供模组 JAR、资源包目录、数据包目录导入。包目录应直接包含 `assets/` 或 `data/`；当前不把 ZIP 当成已启用的包。**浏览游戏数据** 使用原 FCL 文件浏览器打开实际工作目录。代码模组需要重启，包在游戏内启用或重载。
+5. 点击右侧 **启动游戏**，执行已有校验并进入独立 Android JVM。错误会显示实际原因，未提供有效游戏 JAR 时不会显示启动成功。
+6. 左侧 **高级** 保留 JAR/classpath、主类、逐行 JVM/游戏参数、工作目录配置；取消 **使用 PVZCE 启动预设校验** 可运行自行提供的通用 Java 程序。**保存配置** 和切后台会持久化配置，页面与控件状态支持重建恢复。
+7. **日志** 页读取实际 `latest_jar_executor.log` 末尾 64 KiB，可刷新或通过系统文件选择器导出完整日志；不会上传到网络。
 
-游戏数据保存在当前包的 `files/games/pvzce`：`mods/`、`resourcepacks/`、`datapacks/`、`config/`、`saves/`。可通过既有 DocumentsProvider 管理和备份；导入不覆盖同名内容。
+界面复用 FCL 的侧边菜单、启动卡片布局、动态标题、按钮、输入框、勾选框、文件浏览器与 ThemeEngine；没有重新开启旧 Main/Splash/账号初始化链路。默认主题为植物绿：浅色 `#2E7D32`，暗色 `#A5D6A7`；设置中可跟随系统、选择浅/深色或恢复植物绿，已有自定义颜色会保留。账号、Minecraft 下载/更新、整合包平台、无实现的大厅/控制器等按钮不出现在此界面。
+
+游戏内 **Keys** 面板、工具 1–5、节奏 S/D/F/J/K/L、聊天 T 与 /、中文 BMP 文字提交、鼠标/滚轮行为保持原实现。高级运行路径和 Java 25、native-access、唯一 `--gameDir`、Android 图形/音频/SDL/Cacio 后端保持不变。
+
+本轮 UI 实施与验证记录见 [PVZCE_UI_HANDOFF.md](docs/PVZCE_UI_HANDOFF.md)。
 
 ## 游戏操作与功能边界
 
