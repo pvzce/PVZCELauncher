@@ -5,7 +5,7 @@
 - 仓库：https://github.com/pvzce/PVZCELauncher
 - 开发分支：`dev/pvzl-fcl-ui-20261015-01`
 - 最新 main 起点 / 基准完整 SHA：`bc9639cca2ce67ea63e630cc982501b3d75f8f04`。
-- 实现提交 SHA：以本文件首次提交的 GitHub commit 为准；后续验证记录将明确补记完整 SHA，避免在同一提交中自引用。
+- 首次实现提交 SHA：`6122b159a464c6df71ef73bb77749b501e57d18c`；后续修复与最终验证 SHA 见下方记录。
 - 核查账号 CSneko；目标为 FCL-Team/FoldCraftLauncher 的 Fork，main 默认，pull/push/admin 均可用。无 tracked AGENTS.md。未 Fork、未操作上游或旧 smoke 分支。
 - 游戏只读核查 master `e40b28edca5265b9537d22c9a220ce51bc68b2e7`：游戏 build.gradle 的 KnotClient/native-access/shadowJar；PvzceGameProvider 的 gameDir；PvzceResourceManager 的目录包；KeyBindings 的工具/节奏/聊天。没有修改游戏仓库。
 
@@ -49,3 +49,9 @@
 计划在已有工作流运行原相关单元测试、Checkstyle、arm64 debug/fordebug 开发 APK、最终 Manifest/签名审计；随后在 Android30 x86_64 模拟器运行 `PvzceLauncherUiTest`，检查真实 FCL Activity 导航、浅暗色对比度/截图、配置重建持久化、系统选择器与 FCL 文件浏览器路由、随附 JRE 安装、无游戏文件错误、真实日志读取。使用 x86_64 仅做 UI 测试，下载 APK 保持 arm64。
 
 本地未检测到 SDK/NDK/emulator 或 /dev/kvm，未冒充本地构建和实机运行。无真实游戏 shadow JAR；任何模拟器 UI 成功不等于游戏渲染、音频、输入兼容性通过。既有两项 controlconverter 金样失败未修复，相关测试通过也不表示完整工程测试全绿。
+
+## 首轮实际结果与修复
+
+[run 38680027122](https://github.com/pvzce/PVZCELauncher/actions/runs/38680027122)，源码 `6122b159a464c6df71ef73bb77749b501e57d18c`：相关单元测试、Checkstyle、arm64 debug/fordebug APK、最终 Manifest 与签名步骤全部成功。整轮仍是 failure：UI 测试步骤在 `adb: command not found` 退出，未运行 instrumentation，也没有实际 UI 截图。进一步读取诊断发现 emulator 与 avdmanager 未共用 AVD 路径（Unknown AVD name）。已补装 platform-tools、将 platform-tools/emulator 加入 GITHUB_PATH，并显式统一 ANDROID_AVD_HOME，等待新 run。没有将 517 字节的诊断 artifact 当成 UI 成功证据。
+
+同时复核并修正 FCLButton 构造会清除 XML minHeight 的行为：在入口中显式恢复最小 48dp 触控高度、右侧按钮长文本换行；导航选中标签增加高对比底色；FCLDynamicIsland 使用持续标题，避免原动画自动隐藏导致中央页面跳动；浏览器关闭无关外部选择按钮。增加实际打开 FCL 文件浏览器与日志导出选择器的 UI 验证，强化运行组件安装完成和具体缺失 JAR 错误的断言。

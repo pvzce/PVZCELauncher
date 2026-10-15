@@ -27,9 +27,10 @@ jobs:
       - name: Configure writable build caches
         shell: bash
         run: |
-          printf 'GRADLE_USER_HOME=%s/gradle\nANDROID_USER_HOME=%s/android-user\n' \
-            "$RUNNER_TEMP" "$RUNNER_TEMP" >> "$GITHUB_ENV"
-          mkdir -p "$RUNNER_TEMP/gradle" "$RUNNER_TEMP/android-user"
+          printf 'GRADLE_USER_HOME=%s/gradle\nANDROID_USER_HOME=%s/android-user\nANDROID_AVD_HOME=%s/android-user/avd\n' \
+            "$RUNNER_TEMP" "$RUNNER_TEMP" "$RUNNER_TEMP" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/gradle" "$RUNNER_TEMP/android-user/avd"
+          printf '%s/platform-tools\n%s/emulator\n' "$ANDROID_HOME" "$ANDROID_HOME" >> "$GITHUB_PATH"
 
       - name: Set up build JDK 17
         uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
@@ -49,7 +50,7 @@ jobs:
           yes | "$sdkmanager" --licenses > "$RUNNER_TEMP/android-licenses.log"
           set -o pipefail
           "$sdkmanager" --sdk_root="$ANDROID_HOME" \
-            'platforms;android-35' 'build-tools;35.0.0' \
+            'platform-tools' 'platforms;android-35' 'build-tools;35.0.0' \
             'ndk;27.0.12077973' 'cmake;3.22.1'
 
       - name: Check PVZCE configuration and input contracts
@@ -132,7 +133,7 @@ jobs:
           "$ANDROID_HOME/emulator/emulator" -avd pvzce-ui -no-window -no-audio \
             -no-boot-anim -no-snapshot -gpu swiftshader_indirect -camera-back none -camera-front none \
             > "$RUNNER_TEMP/emulator.log" 2>&1 &
-          adb wait-for-device
+          timeout 180 adb wait-for-device
           for attempt in $(seq 1 120); do
             if [ "$(adb shell getprop sys.boot_completed | tr -d '\r')" = 1 ]; then break; fi
             sleep 2

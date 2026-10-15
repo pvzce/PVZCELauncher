@@ -130,7 +130,11 @@ class PvzceLauncherUiTest {
             try {
                 listOf(R.id.pvzce_jar_card, R.id.pvzce_import_mods, R.id.pvzce_import_resources,
                     R.id.pvzce_import_data, R.id.pvzce_browse).forEach { id ->
-                    scenario.onActivity { activity -> activity.findViewById<View>(id).performClick() }
+                    scenario.onActivity { activity ->
+                        if (id != R.id.pvzce_jar_card) activity.findViewById<View>(R.id.pvzce_nav_content).performClick()
+                        assertTrue(activity.findViewById<View>(id).isShown)
+                        activity.findViewById<View>(id).performClick()
+                    }
                     idle()
                 }
                 assertEquals(5, intents.size)
@@ -141,6 +145,19 @@ class PvzceLauncherUiTest {
                 assertEquals("com.tungsten.fcllibrary.browser.FileBrowserActivity", intents[4].component?.className)
                 assertNotNull(intents[4].getSerializableExtra("config"))
             } finally { instrumentation.removeMonitor(monitor) }
+            // Open the retained FCL component for real as well as checking its launch intent.
+            val browserMonitor = instrumentation.addMonitor("com.tungsten.fcllibrary.browser.FileBrowserActivity", null, false)
+            try {
+                scenario.onActivity { activity -> activity.findViewById<View>(R.id.pvzce_browse).performClick() }
+                val browser = instrumentation.waitForMonitorWithTimeout(browserMonitor, 10000)
+                assertNotNull("FCL file browser must actually open", browser)
+                idle()
+                instrumentation.runOnMainSync {
+                    assertTrue(browser.findViewById<TextView>(R.id.current_folder).text.toString().contains("games/pvzce"))
+                }
+                screenshot("game-data-browser")
+                instrumentation.runOnMainSync { browser.finish() }
+            } finally { instrumentation.removeMonitor(browserMonitor) }
         }
     }
 
@@ -160,7 +177,12 @@ class PvzceLauncherUiTest {
             }
             assertTrue("Bundled JRE install must finish", finished)
             assertTrue(File(FCLPath.JAVA_PATH, "jre25/release").isFile)
-            scenario.onActivity { activity -> activity.findViewById<View>(R.id.pvzce_start).performClick() }
+            assertTrue(File(FCLPath.JAVA_PATH, "jre25/bin/java").isFile)
+            scenario.onActivity { activity ->
+                assertTrue("All bundled components must install successfully",
+                    activity.findViewById<TextView>(R.id.pvzce_status).text.startsWith("已安装 jre25"))
+                activity.findViewById<View>(R.id.pvzce_start).performClick()
+            }
             var failedCorrectly = false
             val errorDeadline = SystemClock.elapsedRealtime() + 15000
             while (!failedCorrectly && SystemClock.elapsedRealtime() < errorDeadline) {
@@ -170,7 +192,12 @@ class PvzceLauncherUiTest {
                 }
             }
             assertTrue("Missing game JAR must produce an error", failedCorrectly)
+            scenario.onActivity { activity ->
+                assertTrue(activity.findViewById<TextView>(R.id.pvzce_status).text.contains("Supply a JAR or classpath"))
+            }
             screenshot("missing-jar-error")
+            instrumentation.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
+            idle()
         }
         val log = File(FCLPath.LOG_DIR, "latest_jar_executor.log")
         log.parentFile!!.mkdirs()
@@ -186,6 +213,20 @@ class PvzceLauncherUiTest {
                 }
                 assertTrue("Log page must read actual file", loaded)
                 screenshot("logs-light")
+                val exports = mutableListOf<Intent>()
+                val exportMonitor = object : Instrumentation.ActivityMonitor() {
+                    override fun onStartActivity(intent: Intent): Instrumentation.ActivityResult {
+                        exports.add(Intent(intent))
+                        return Instrumentation.ActivityResult(Activity.RESULT_CANCELED, null)
+                    }
+                }
+                instrumentation.addMonitor(exportMonitor)
+                try {
+                    scenario.onActivity { activity -> activity.findViewById<View>(R.id.pvzce_export_logs).performClick() }
+                    idle()
+                    assertEquals(Intent.ACTION_CREATE_DOCUMENT, exports.single().action)
+                    assertEquals("text/plain", exports.single().type)
+                } finally { instrumentation.removeMonitor(exportMonitor) }
             }
         } finally { log.delete() }
     }

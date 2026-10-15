@@ -9,6 +9,7 @@ import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.widget.doAfterTextChanged
 import com.tungsten.fcl.R
+import com.tungsten.fcllibrary.browser.FileBrowser
 import com.tungsten.fcllibrary.browser.options.LibMode
 import com.tungsten.fcllibrary.browser.options.SelectionMode
 import com.tungsten.fcllibrary.component.theme.ThemeEngine
@@ -158,7 +159,7 @@ class GenericLauncherActivity : FCLActivity() {
         }
         fun field(parent: LinearLayout, key: String, id: Int, label: Int,
                   default: String = "", multiline: Boolean = false) {
-            text(parent, label)
+            text(parent, label).labelFor = id
             fields[key] = FCLEditText(this).apply {
                 this.id = id
                 setSingleLine(!multiline)
@@ -172,6 +173,8 @@ class GenericLauncherActivity : FCLActivity() {
         fun action(parent: LinearLayout, id: Int, label: Int, block: () -> Unit): Button =
             (layoutInflater.inflate(R.layout.pvzce_action_button, parent, false) as FCLButton).apply {
                 this.id = id
+                minimumHeight = dp(48)
+                isSingleLine = false
                 setText(label)
                 setOnClickListener { if (!busy) block() }
                 parent.addView(this)
@@ -179,7 +182,7 @@ class GenericLauncherActivity : FCLActivity() {
             }
         fun spinner(parent: LinearLayout, id: Int, label: Int, entries: List<String>,
                     key: String, values: List<String> = entries, default: String = values.first()): Spinner {
-            text(parent, label)
+            text(parent, label).labelFor = id
             return Spinner(this).apply {
                 this.id = id
                 adapter = ArrayAdapter(this@GenericLauncherActivity, android.R.layout.simple_spinner_dropdown_item, entries)
@@ -279,6 +282,9 @@ class GenericLauncherActivity : FCLActivity() {
             setTextIsSelectable(true)
         }
         launchButton = findViewById(R.id.pvzce_start)
+        listOf(R.id.pvzce_start, R.id.pvzce_jar_card, R.id.pvzce_render_card).forEach { id ->
+            findViewById<Button>(id).apply { minimumHeight = dp(if (id == R.id.pvzce_start) 56 else 48); isSingleLine = false }
+        }
         launchButton.setOnClickListener { startJava() }
         controls.add(launchButton)
         findViewById<Button>(R.id.pvzce_jar_card).also { card ->
@@ -312,8 +318,8 @@ class GenericLauncherActivity : FCLActivity() {
         selectedPage = index.coerceIn(pages.indices)
         pages.forEachIndexed { i, page -> page.visibility = if (i == selectedPage) View.VISIBLE else View.GONE }
         navIds.forEachIndexed { i, id -> findViewById<FCLMenuView>(id).isSelected = i == selectedPage }
-        labelIds.forEachIndexed { i, id -> findViewById<TextView>(id).setTypeface(null, if (i == selectedPage) Typeface.BOLD else Typeface.NORMAL) }
-        findViewById<FCLDynamicIsland>(R.id.pvzce_title).setTextWithAnim(getString(titles[selectedPage]))
+        refreshNavigation()
+        findViewById<FCLDynamicIsland>(R.id.pvzce_title).refresh(getString(titles[selectedPage]))
         if (selectedPage == 4) refreshLogs()
     }
 
@@ -329,10 +335,25 @@ class GenericLauncherActivity : FCLActivity() {
             setColor(surface); cornerRadius = dp(8).toFloat()
         }
         pages.forEach { it.background = GradientDrawable().apply { setColor(surface); cornerRadius = dp(8).toFloat() } }
-        labelIds.forEach { findViewById<TextView>(it).setTextColor(theme.autoTint) }
+        refreshNavigation()
         fields.values.forEach { it.setTextColor(theme.getColor2()); it.setHintTextColor(theme.getColor2()) }
         pvzce.setTextColor(theme.getColor2())
         refreshSummary()
+    }
+
+    private fun refreshNavigation() {
+        val theme = ThemeEngine.getTheme()
+        labelIds.forEachIndexed { index, id ->
+            findViewById<TextView>(id).apply {
+                val selected = index == selectedPage
+                setTypeface(null, if (selected) Typeface.BOLD else Typeface.NORMAL)
+                setTextColor(if (selected) theme.getColor() else theme.autoTint)
+                background = GradientDrawable().apply {
+                    setColor(if (selected) theme.autoTint else android.graphics.Color.TRANSPARENT)
+                    cornerRadius = dp(8).toFloat()
+                }
+            }
+        }
     }
 
     private fun refreshSummary() {
@@ -349,7 +370,9 @@ class GenericLauncherActivity : FCLActivity() {
             val work = File(fields.getValue("work").text.toString())
             require(work.isAbsolute && work.isDirectory) { "工作目录不存在，请先应用预设或设置有效目录" }
             save()
-            fileLauncher.launch(LibMode.FILE_BROWSER, SelectionMode.SINGLE_SELECTION, null, work.absolutePath, null)
+            fileLauncher.launch(FileBrowser.Builder(this)
+                .setLibMode(LibMode.FILE_BROWSER).setSelectionMode(SelectionMode.SINGLE_SELECTION)
+                .setInitDir(work.absolutePath).setExternalSelection(false).create())
         }.onFailure { showError(it) }
     }
 
