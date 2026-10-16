@@ -66,7 +66,7 @@ jobs:
         shell: bash
         run: |
           bash gradlew :FCL:testFordebugUnitTest \
-            --tests com.tungsten.fcl.generic.JavaLaunchSpecTest \
+            --tests 'com.tungsten.fcl.generic.*' \
             :FCL:checkstyle :FCL:compileFordebugAndroidTestKotlin \
             :FCL:assembleDebug :FCL:assembleFordebug \
             -Darch=arm64 --no-daemon --console=plain --max-workers=2 \
