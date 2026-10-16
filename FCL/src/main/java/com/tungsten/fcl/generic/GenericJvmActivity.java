@@ -95,7 +95,6 @@ public class GenericJvmActivity extends FCLActivity implements TextureView.Surfa
         });
         button(controls, "Log", () -> {
             logScroll.setVisibility(logScroll.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE);
-            logs.removeCallbacks(refreshLogView);
             refreshLogView();
         });
         button(controls, "Esc", () -> CallbackBridge.sendKeyPress(FCLKeycodes.KEY_ESC));
@@ -328,25 +327,31 @@ public class GenericJvmActivity extends FCLActivity implements TextureView.Surfa
 
     @Override
     public void onLog(String log) {
-        if (sessionLog != null && sessionLog.append(log)) {
-            logs.postDelayed(refreshLogView, 100);
+        if (sessionLog != null) {
+            synchronized (sessionLog) {
+                if (sessionLog.append(log)) logs.postDelayed(refreshLogView, 100);
+            }
         }
     }
 
     private void refreshLogView() {
         if (logViewDestroyed || sessionLog == null) return;
-        String tail = sessionLog.snapshot();
+        String tail;
+        synchronized (sessionLog) {
+            logs.removeCallbacks(refreshLogView);
+            tail = sessionLog.snapshot();
+        }
         if (logScroll.getVisibility() == View.VISIBLE) logs.setText(tail);
     }
 
     @Override
     public void onExit(int code) {
-        if (sessionLog != null) sessionLog.close();
+        // The native stdout reader may still be draining after the JVM returns.
+        // Keep its trailing diagnostics until the user closes this session.
         runOnUiThread(() -> {
             releaseInput();
             exited = true;
             logScroll.setVisibility(View.VISIBLE);
-            logs.removeCallbacks(refreshLogView);
             refreshLogView();
             GameService.stop(this);
             new AlertDialog.Builder(this).setTitle("Java exited: " + code)
@@ -356,6 +361,7 @@ public class GenericJvmActivity extends FCLActivity implements TextureView.Surfa
     }
 
     private void stopProcess() {
+        if (sessionLog != null) sessionLog.close();
         GameService.stop(this);
         android.os.Process.killProcess(android.os.Process.myPid());
     }
@@ -404,8 +410,8 @@ public class GenericJvmActivity extends FCLActivity implements TextureView.Surfa
     @Override
     protected void onDestroy() {
         logViewDestroyed = true;
-        if (logs != null) logs.removeCallbacks(refreshLogView);
         if (sessionLog != null) sessionLog.close();
+        if (logs != null) logs.removeCallbacks(refreshLogView);
         if (started && !exited) releaseInput();
         GameService.stop(this);
         SdlBridge.reset();

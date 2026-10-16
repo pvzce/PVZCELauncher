@@ -31,7 +31,8 @@ LWJGL `ALC10.alcOpenDevice`，未发现足以把用户故障直接归因于该�
    拼接并替换整段 TextView 文本的任务，日志面板隐藏时也执行。新增 `GameSessionLog`：
    每个会话复用一个 UTF-8 writer，完整文件仍逐条刷新；屏幕仅保留最近 16000 个 UTF-16
    单元且不从代理对中间截断，同一批日志仅请求一个 100ms 后的 UI 更新，隐藏时不设置 TextView。
-   打开面板和退出时立即显示最新尾部；退出/销毁关闭 writer，之后的回调不重新打开文件。
+   打开面板和 JVM 退出时立即显示最新尾部；JVM 返回后继续接收 stdout 管道中尚未读完的诊断，
+   用户关闭会话/销毁界面时关闭 writer，之后的回调不重新打开文件。
    写文件失败仍保留屏幕日志。此处修复的是可确认的日志负担，未把它等同用户设备的全部性能问题。
 
 ## 验证
@@ -42,8 +43,10 @@ LWJGL `ALC10.alcOpenDevice`，未发现足以把用户故障直接归因于该�
 - `bash tools/check_pvzce_profile.sh`：通过。
 - `python3 tools/audit_generic_launcher.py`：通过。
 - `git diff --check`：通过。
-- `check_generic_java.sh` 首次在环境精简 JDK 21 上因缺少 `--release 8` 的目标平台数据失败；
-  该结果不是代码回归结论，待用完整构建 JDK 验证。
+- `bash tools/check_generic_java.sh`：完整 JDK 17 下通过。首次在环境精简 JDK 21 上因缺少
+  `--release 8` 的目标平台数据失败；随后下载官方 Temurin JDK 17 并验证 SHA-256，
+  使用该 JDK 重跑通用启动、PVZCE 预检和音频/日志检查，全部通过。
+- Checkstyle 10.12.5：本轮三个 Java 生产文件及独立检查 harness 通过。
 - Linux 加载选择探针：使用仓库实际 bundled LWJGL 3.4.1 Java JAR、Maven 的同版本 Linux core
   natives、桌面 OpenAL natives JAR，以及系统 OpenAL 的独立副本。设置 `ALSOFT_DRIVERS=null`，
   不播放声音。固定路径前，`/proc/self/maps` 显示加载的是临时提取目录里的桌面 `libopenal.so`；
