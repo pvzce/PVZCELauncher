@@ -80,5 +80,26 @@ SAF 目录导入沿用已有复制器的 32 层/20000 项限制。
 
 Android instrumentation 已适配新的内容页，并新增实例切换、重建后保持选择及可视化禁用模组检查。
 也覆盖在 Activity 重建时保持操作锁并在 IO 结束后恢复控件。
-实际 Android 构建/设备测试结果将在执行后补记；未完成前不宣称 UI 测试、截图或真机兼容通过。
+
+### 本轮实际构建结果
+
+- [草稿 PR #3](https://github.com/pvzce/PVZCELauncher/pull/3)，分支
+  `feat/pvzce-instance-manager-20261016`。与音频 PR #2 的只读合并检查无冲突，
+  未将任一 PR 合并 main，也未改动游戏仓库。
+- [CI run 38861551125](https://github.com/pvzce/PVZCELauncher/actions/runs/38861551125)，
+  构建代码 `9d3f9f5dc44bcbc65b0a0f4f916eaf7384334ede`：通用/PVZCE 预检、
+  `com.tungsten.fcl.generic.*` 相关单元测试、Checkstyle、Android instrumentation 源码编译、
+  两个 arm64 开发 APK，以及最终包名/Manifest/开发签名验证全部成功。
+- [APK 与验证记录 artifact 12029317973](https://github.com/pvzce/PVZCELauncher/actions/runs/38861551125/artifacts/12029317973)
+  已上传，API 确认未过期，358754721 字节，含 debug/fordebug APK、SHA256SUMS、BUILD_INFO、
+  单元测试和验证结果；北京时间 2026-10-30 14:37:37 到期。后续提交仅补记 Markdown，
+  不改变该 APK 的实现代码。此包不包含尚未合并的独立音频修复 PR #2。
+- 截至北京时间 2026-10-16 14:39，后续 Android UI 冒烟步骤仍在运行，
+  **未把 instrumentation 编译成功当作 UI 实测通过**，也没有声称获得截图或整轮工作流成功。
+  实时结论以 CI 链接为准。
+- 首次 CI 的测试夹具使用了 Android 编译 stub 中缺少的 `Files.readString/writeString`，
+  已改用兼容的字节读写 API；相关 Java/Kotlin 实现与测试在最新构建通过。
+  中间旧提交的构建已取消，仅引用上述最新代码的产物。
+
 仍需真机复核系统文件选择器、主题/横竖屏布局、大型目录 IO，以及真实模组/包/存档在游戏中的加载。
+没有实际用户游戏 JAR、模组依赖和设备运行证据，不宣称端到端游戏兼容性完成。
