@@ -59,6 +59,7 @@ jobs:
           mkdir -p artifacts
           bash tools/check_pvzce_profile.sh | tee artifacts/pvzce-preflight.txt
           bash tools/check_generic_java.sh | tee artifacts/generic-launch-checks.txt
+          bash tools/check_audio_compatibility.sh | tee artifacts/audio-compatibility-checks.txt
           python3 tools/audit_generic_launcher.py | tee artifacts/source-audit.txt
           git diff --check
 
