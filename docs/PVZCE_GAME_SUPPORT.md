@@ -1,5 +1,8 @@
 # 面向 pvzce/pvzce 的启动器适配
 
+2026-10-16 新版无声/卡顿的启动器修复候选及实际验证边界见
+[音频兼容性记录](PVZCE_AUDIO_COMPATIBILITY.md)。
+
 本轮仅修改 PVZCELauncher；游戏仓库只读核对。核对日期 2026-10-14，游戏基准
 [`e40b28edca5265b9537d22c9a220ce51bc68b2e7`](https://github.com/pvzce/pvzce/tree/e40b28edca5265b9537d22c9a220ce51bc68b2e7)，
 启动器基准 `e9c58d62fbea2b20ef61f4b0f6363f0e3b5d9eae`。

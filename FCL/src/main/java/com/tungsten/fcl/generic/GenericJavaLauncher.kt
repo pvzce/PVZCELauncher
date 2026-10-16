@@ -34,9 +34,8 @@ object GenericJavaLauncher {
             null, true, release.getProperty("JAVA_VERSION", "").trim('"').startsWith("1.8"))
         command.add("-Duser.home=" + context.filesDir.absolutePath)
         command.add("-Djava.io.tmpdir=" + context.cacheDir.absolutePath)
-        command.add("-Djava.library.path=\${natives_directory}")
-        command.add("-Dorg.lwjgl.librarypath=" + natives.absolutePath)
-        command.add("-Dorg.lwjgl.opengl.libname=\${gl_lib_name}")
+        LwjglRuntimeOptions.arguments(natives, File(context.applicationInfo.nativeLibraryDir))
+            .forEach { command.add(it) }
         // Prefer the Android patched LWJGL jars over desktop variants in a game's classpath.
         spec.command(jars.map { it.absolutePath }).forEach { command.add(it) }
         val renderer = RendererManager.getRenderer(rendererId)

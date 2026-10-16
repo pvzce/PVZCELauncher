@@ -36,8 +36,7 @@ import com.tungsten.fcllibrary.component.FCLActivity;
 import org.libsdl.app.SDLActivity;
 import org.lwjgl.glfw.CallbackBridge;
 
-import java.io.FileWriter;
-import java.io.IOException;
+import java.io.File;
 
 /** Minimal general-purpose GLFW window. Does not read/write Minecraft options or profiles. */
 public class GenericJvmActivity extends FCLActivity implements TextureView.SurfaceTextureListener, FCLBridgeCallback {
@@ -53,7 +52,9 @@ public class GenericJvmActivity extends FCLActivity implements TextureView.Surfa
     private float lastX;
     private float lastY;
     private boolean grabbed;
-    private boolean firstLog = true;
+    private GameSessionLog sessionLog;
+    private boolean logViewDestroyed;
+    private final Runnable refreshLogView = this::refreshLogView;
     private boolean editingText;
     private int activePointer = -1;
     private int touchButton = FCLBridge.Button1;
@@ -70,6 +71,7 @@ public class GenericJvmActivity extends FCLActivity implements TextureView.Surfa
                     .setPositiveButton("Close", (dialog, which) -> finish()).setCancelable(false).show();
             return;
         }
+        sessionLog = new GameSessionLog(new File(bridge.getLogPath()));
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         root = new FrameLayout(this);
         texture = new TextureView(this);
@@ -91,7 +93,10 @@ public class GenericJvmActivity extends FCLActivity implements TextureView.Surfa
             releaseInput();
             panel.setVisibility(panel.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE);
         });
-        button(controls, "Log", () -> logScroll.setVisibility(logScroll.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE));
+        button(controls, "Log", () -> {
+            logScroll.setVisibility(logScroll.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE);
+            refreshLogView();
+        });
         button(controls, "Esc", () -> CallbackBridge.sendKeyPress(FCLKeycodes.KEY_ESC));
         button(controls, "Enter", () -> CallbackBridge.sendKeyPress(FCLKeycodes.KEY_ENTER));
         button(controls, "Space", () -> CallbackBridge.sendKeyPress(FCLKeycodes.KEY_SPACE));
@@ -321,28 +326,33 @@ public class GenericJvmActivity extends FCLActivity implements TextureView.Surfa
     }
 
     @Override
-    public synchronized void onLog(String log) {
-        if (bridge != null) {
-            try (FileWriter writer = new FileWriter(bridge.getLogPath(), !firstLog)) {
-                writer.write(log);
-                firstLog = false;
-            } catch (IOException ignore) {
-                // The on-screen log remains available when file output fails.
+    public void onLog(String log) {
+        if (sessionLog != null) {
+            synchronized (sessionLog) {
+                if (sessionLog.append(log)) logs.postDelayed(refreshLogView, 100);
             }
         }
-        runOnUiThread(() -> {
-            if (logs == null) return;
-            String text = logs.getText().toString() + log;
-            logs.setText(text.substring(Math.max(0, text.length() - 16000)));
-        });
+    }
+
+    private void refreshLogView() {
+        if (logViewDestroyed || sessionLog == null) return;
+        String tail;
+        synchronized (sessionLog) {
+            logs.removeCallbacks(refreshLogView);
+            tail = sessionLog.snapshot();
+        }
+        if (logScroll.getVisibility() == View.VISIBLE) logs.setText(tail);
     }
 
     @Override
     public void onExit(int code) {
+        // The native stdout reader may still be draining after the JVM returns.
+        // Keep its trailing diagnostics until the user closes this session.
         runOnUiThread(() -> {
             releaseInput();
             exited = true;
             logScroll.setVisibility(View.VISIBLE);
+            refreshLogView();
             GameService.stop(this);
             new AlertDialog.Builder(this).setTitle("Java exited: " + code)
                     .setMessage("Log: " + bridge.getLogPath() + "\nClose and reopen PVZCE Launcher for another session.")
@@ -351,6 +361,7 @@ public class GenericJvmActivity extends FCLActivity implements TextureView.Surfa
     }
 
     private void stopProcess() {
+        if (sessionLog != null) sessionLog.close();
         GameService.stop(this);
         android.os.Process.killProcess(android.os.Process.myPid());
     }
@@ -398,6 +409,9 @@ public class GenericJvmActivity extends FCLActivity implements TextureView.Surfa
 
     @Override
     protected void onDestroy() {
+        logViewDestroyed = true;
+        if (sessionLog != null) sessionLog.close();
+        if (logs != null) logs.removeCallbacks(refreshLogView);
         if (started && !exited) releaseInput();
         GameService.stop(this);
         SdlBridge.reset();
