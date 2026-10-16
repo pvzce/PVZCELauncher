@@ -52,7 +52,19 @@ LWJGL `ALC10.alcOpenDevice`，未发现足以把用户故障直接归因于该�
   不播放声音。固定路径前，`/proc/self/maps` 显示加载的是临时提取目录里的桌面 `libopenal.so`；
   固定路径后，映射为指定的独立副本；两次 null device 均能打开。patched core 在 Linux 主机上
   另有预期的 `pojavexec` 缺失提示。这只验证**加载选择**，不是 Android ABI、OpenSL 或游戏验证。
-- APK 构建与检查结果将在真实 CI 执行后补记，不沿用以前提交的 APK 结果。
+- 本轮真实 [CI run 38827962272](https://github.com/pvzce/PVZCELauncher/actions/runs/38827962272)，
+  构建源码为 `2db83e4032c7c7e31acbeae2dcd1203d82d8d4ea`：预检、相关单元测试、Checkstyle、
+  Android test 源码编译、debug/fordebug 两个 arm64 APK 构建，以及包名、Manifest 和开发签名验证
+  步骤均已成功。不是复用历史 APK。
+- [本轮 APK 与验证记录 artifact 12015878536](https://github.com/pvzce/PVZCELauncher/actions/runs/38827962272/artifacts/12015878536)
+  已上传，API 确认 `expired=false`，大小 358655964 字节。ZIP 包含两个 APK、SHA256SUMS、
+  BUILD_INFO、Manifest/签名记录和测试/预检结果。开发签名，不是正式发布。
+- 截至北京时间 2026-10-16 08:20，工作流后续的 Android UI 冒烟步骤仍在运行，
+  因此**不声称整个工作流或 UI 测试通过**。该步骤主要检查既有启动器界面，
+  不能代替实际 PVZCE 新旧 JAR 的音频与帧时间验证。实时状态以上述 CI 链接为准。
+- 草稿 [PR #2](https://github.com/pvzce/PVZCELauncher/pull/2)，分支
+  `fix/pvzce-audio-compat-20261016`。源码已推送，未合并 main；此前源码版本的构建已取消，
+  验证只引用上述包含退出日志处理调整的最新代码提交。后续只补记 Markdown，不改变该 APK 代码。
 
 ## 真机复核
 
