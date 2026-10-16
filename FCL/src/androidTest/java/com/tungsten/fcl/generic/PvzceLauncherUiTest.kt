@@ -198,6 +198,7 @@ class PvzceLauncherUiTest {
         }
         assertTrue("Instance content operation must finish", ready)
         idle()
+        SystemClock.sleep(100)
     }
 
     @Test fun independentInstancesAndVisualModManagementSurviveRecreation() {
@@ -252,6 +253,23 @@ class PvzceLauncherUiTest {
         } finally {
             firstRoot.deleteRecursively()
             second.directory().deleteRecursively()
+        }
+    }
+
+    @Test fun operationLockSurvivesActivityRecreation() {
+        ActivityScenario.launch(GenericLauncherActivity::class.java).use { scenario ->
+            val token = Any()
+            assertTrue(GameOperationGate.begin(token))
+            try {
+                idle()
+                scenario.recreate()
+                scenario.onActivity {
+                    assertFalse(it.findViewById<View>(R.id.pvzce_start).isEnabled)
+                    assertFalse(it.findViewById<View>(R.id.pvzce_instance).isEnabled)
+                }
+            } finally { GameOperationGate.end(token) }
+            waitReady(scenario)
+            scenario.onActivity { assertTrue(it.findViewById<View>(R.id.pvzce_instance).isEnabled) }
         }
     }
 

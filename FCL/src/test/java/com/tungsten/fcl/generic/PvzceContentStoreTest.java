@@ -24,6 +24,14 @@ public class PvzceContentStoreTest {
     private Path root;
     private PvzceContentStore store;
 
+    private static void write(Path file, String text) throws IOException {
+        Files.write(file, text.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    }
+
+    private static String read(Path file) throws IOException {
+        return new String(Files.readAllBytes(file), java.nio.charset.StandardCharsets.UTF_8);
+    }
+
     @Before public void setup() throws Exception {
         root = Files.createTempDirectory("pvzce content 中文 ").toRealPath();
         store = new PvzceContentStore(root.resolve("game").toFile());
@@ -67,12 +75,12 @@ public class PvzceContentStoreTest {
         pack(RESOURCES, "shared"); pack(DATA, "shared");
         Path config = root.resolve("game/config/pvzce-packs.json");
         Files.createDirectories(config.getParent());
-        Files.writeString(config, "{\"future\":{\"keep\":true},\"disabled\":[\"unavailable-pack\"]}");
+        write(config, "{\"future\":{\"keep\":true},\"disabled\":[\"unavailable-pack\"]}");
         store.setEnabled(DATA, "shared", false);
         assertTrue(store.hasSharedPackName(DATA, "shared"));
         assertFalse(store.list(DATA).get(0).enabled);
         assertFalse(store.list(RESOURCES).get(0).enabled);
-        var json = JsonParser.parseString(Files.readString(config)).getAsJsonObject();
+        var json = JsonParser.parseString(read(config)).getAsJsonObject();
         assertTrue(json.getAsJsonObject("future").get("keep").getAsBoolean());
         assertTrue(json.getAsJsonArray("disabled").toString().contains("unavailable-pack"));
         store.rename(DATA, "shared", "renamed");
@@ -84,14 +92,14 @@ public class PvzceContentStoreTest {
         pack(DATA, "example");
         Path config = Files.createDirectories(root.resolve("game/config")).resolve("pvzce-packs.json");
         for (String content : List.of("{broken", "{\"disabled\":42}", "{\"disabled\":[{}]}")) {
-            Files.writeString(config, content);
+            write(config, content);
             try {
                 store.setEnabled(DATA, "example", false);
                 fail("Overwrote malformed settings");
             } catch (IOException expected) {
                 // Rejected without overwriting user data.
             }
-            assertEquals(content, Files.readString(config));
+            assertEquals(content, read(config));
         }
     }
 
@@ -102,14 +110,14 @@ public class PvzceContentStoreTest {
         assertTrue(store.list(SAVES).isEmpty());
         assertEquals(List.of(id), store.trashIds());
         Files.createDirectory(world);
-        Files.writeString(world.resolve("keep"), "new world");
+        write(world.resolve("keep"), "new world");
         try {
             store.restore(id);
             fail("Overwrote an existing save");
         } catch (IOException expected) {
             // Rejected without overwriting user data.
         }
-        assertEquals("new world", Files.readString(world.resolve("keep")));
+        assertEquals("new world", read(world.resolve("keep")));
         Files.delete(world.resolve("keep")); Files.delete(world);
         store.restore(id);
         assertArrayEquals(new byte[] {1, 2, 3}, Files.readAllBytes(world.resolve("profile.dat")));
@@ -168,7 +176,7 @@ public class PvzceContentStoreTest {
 
     @Test public void traversalAndSymlinksCannotModifyOutsideData() throws Exception {
         Path external = Files.createDirectories(root.resolve("external"));
-        Files.writeString(external.resolve("keep"), "untouched");
+        write(external.resolve("keep"), "untouched");
         Files.createSymbolicLink(store.directory(SAVES).toPath().resolve("link"), external);
         assertTrue(store.list(SAVES).isEmpty());
         for (String name : List.of("../external", "link")) {
@@ -187,7 +195,7 @@ public class PvzceContentStoreTest {
         } catch (IOException expected) {
             // Rejected without overwriting user data.
         }
-        assertEquals("untouched", Files.readString(external.resolve("keep")));
+        assertEquals("untouched", read(external.resolve("keep")));
     }
 
     @Test public void duplicateZipFilesAndExcessiveNestingAreRejected() throws Exception {
@@ -219,6 +227,26 @@ public class PvzceContentStoreTest {
             fail("Accepted excessive nesting");
         } catch (IOException expected) {
             assertTrue(store.list(SAVES).isEmpty());
+        }
+    }
+
+    @Test public void saveImportRejectsTheSavesParentAndMinecraftWorldAssumptions() throws Exception {
+        Path wrapper = Files.createDirectories(root.resolve("wrapper/world"));
+        Files.write(wrapper.resolve("profile.dat"), new byte[] {1});
+        PvzceContentStore.validateImported(SAVES, wrapper.toFile());
+        try {
+            PvzceContentStore.validateImported(SAVES, wrapper.getParent().toFile());
+            fail("Accepted a saves parent instead of a PVZCE world");
+        } catch (IOException expected) {
+            assertTrue(Files.exists(wrapper.resolve("profile.dat")));
+        }
+        Path minecraft = Files.createDirectories(root.resolve("minecraft"));
+        Files.write(minecraft.resolve("level.dat"), new byte[] {2});
+        try {
+            PvzceContentStore.validateImported(SAVES, minecraft.toFile());
+            fail("Used Minecraft root level.dat as a PVZCE save marker");
+        } catch (IOException expected) {
+            assertTrue(Files.exists(minecraft.resolve("level.dat")));
         }
     }
 }

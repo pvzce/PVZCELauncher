@@ -41,6 +41,8 @@ class PvzceContentPanel(
     private var all = emptyList<PvzceContentStore.Entry>()
     private var visible = emptyList<PvzceContentStore.Entry>()
     private var busy = false
+    private var restoring = false
+    val query get() = binding.searchFilter.text.toString()
     private val extraButtons = mutableListOf<FCLButton>()
     var kind = PvzceContentStore.Kind.MODS
         private set
@@ -91,7 +93,7 @@ class PvzceContentPanel(
                 kind = PvzceContentStore.Kind.values()[tab.position]
                 selected.clear()
                 binding.searchFilter.setText("")
-                reload()
+                if (!restoring) reload()
             }
             override fun onTabUnselected(tab: TabLayout.Tab) = Unit
             override fun onTabReselected(tab: TabLayout.Tab) = Unit
@@ -120,8 +122,16 @@ class PvzceContentPanel(
         adapter.notifyDataSetChanged()
     }
 
+    fun restoreState(index: Int, query: String?) {
+        restoring = true
+        kind = PvzceContentStore.Kind.values()[index.coerceIn(0, 3)]
+        tabs.selectTab(tabs.getTabAt(kind.ordinal))
+        binding.searchFilter.setText(query ?: "")
+        restoring = false
+    }
+
     fun reload(clearSelection: Boolean = false) {
-        if (busy) return
+        if (busy || activity.isDestroyed || activity.isFinishing) return
         if (clearSelection) selected.clear()
         all = emptyList(); visible = emptyList(); filter()
         val target = runCatching { store() }.getOrElse { onError(it); return }

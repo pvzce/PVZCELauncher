@@ -18,10 +18,18 @@ public class GameInstanceStoreTest {
     private GameInstanceStore store;
     private GameInstanceStore.Instance first;
 
+    private static void write(Path file, String text) throws IOException {
+        Files.write(file, text.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    }
+
+    private static String read(Path file) throws IOException {
+        return new String(Files.readAllBytes(file), java.nio.charset.StandardCharsets.UTF_8);
+    }
+
     @Before public void setup() throws Exception {
         root = Files.createTempDirectory("pvzce instances 中文 ").toRealPath();
         Path legacy = Files.createDirectories(root.resolve("games/legacy"));
-        Files.writeString(legacy.resolve("original.dat"), "do not change");
+        write(legacy.resolve("original.dat"), "do not change");
         store = new GameInstanceStore(root.toFile());
         Map<String, String> config = new HashMap<>();
         config.put("work", legacy.toString());
@@ -38,7 +46,7 @@ public class GameInstanceStoreTest {
 
     @Test public void migrationIsIdempotentAndNeverMovesLegacyData() throws Exception {
         assertEquals(first.id, store.initialize(Map.of("work", root.resolve("ignored").toString())).id);
-        assertEquals("do not change", Files.readString(first.directory().toPath().resolve("original.dat")));
+        assertEquals("do not change", read(first.directory().toPath().resolve("original.dat")));
         assertEquals("中文参数\n--literal", new GameInstanceStore(root.toFile()).selected().config.get("args"));
         assertEquals(1, store.list(false).size());
     }
@@ -114,13 +122,13 @@ public class GameInstanceStoreTest {
 
     @Test public void corruptedRegistryIsNotSilentlyReset() throws Exception {
         Path file = root.resolve("launcher_instances/registry.properties");
-        Files.writeString(file, "corrupt content");
+        write(file, "corrupt content");
         try {
             store.initialize(first.config);
             fail("Reset corrupt registry");
         } catch (IOException expected) {
             // Rejected without overwriting user data.
         }
-        assertEquals("corrupt content", Files.readString(file));
+        assertEquals("corrupt content", read(file));
     }
 }

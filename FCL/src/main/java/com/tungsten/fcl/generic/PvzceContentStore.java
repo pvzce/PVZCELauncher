@@ -370,7 +370,10 @@ public final class PvzceContentStore {
                 if (jar.getJarEntry("fabric.mod.json") == null) throw new IOException("缺少 fabric.mod.json");
             }
         } else if (!item.isDirectory()) throw new IOException("请选择实际目录");
-        else if (kind != Kind.SAVES && !new File(item, "assets").isDirectory() && !new File(item, "data").isDirectory()) {
+        else if (kind == Kind.SAVES && !new File(item, "profile.dat").isFile()
+                && !new File(item, "levels").isDirectory() && !new File(item, "level_status").isDirectory()) {
+            throw new IOException("请选择含 profile.dat、levels/ 或 level_status/ 的 PVZCE 世界目录");
+        } else if (kind != Kind.SAVES && !new File(item, "assets").isDirectory() && !new File(item, "data").isDirectory()) {
             throw new IOException("包目录中没有 assets/ 或 data/");
         }
     }

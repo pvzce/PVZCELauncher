@@ -62,24 +62,38 @@ class GenericLauncherActivity : FCLActivity() {
     private var initialized = false
     private val themeRefresh = Runnable { refreshShell() }
     private val logFile get() = File(FCLPath.LOG_DIR, "latest_jar_executor.log")
-    private var busy = false
-        set(value) {
-            field = value
-            controls.forEach { it.isEnabled = !value; it.alpha = if (value) 0.5f else 1f }
-            contentPanel?.setBusy(value)
+    private val operationOwner = Any()
+    private var refreshAfterOperation = false
+    private val operationListener = Runnable { runOnUiThread {
+        if (!isDestroyed && initialized) {
+            if (GameOperationGate.isBusy() && !GameOperationGate.isOwnedBy(operationOwner)) refreshAfterOperation = true
+            renderBusy(GameOperationGate.isBusy())
+            if (!GameOperationGate.isBusy() && refreshAfterOperation) {
+                refreshAfterOperation = false
+                runCatching { loadInstance(instanceStore.selected().id, false); resumeContent() }
+                    .onFailure { showError(it) }
+            }
         }
+    } }
+    private var busy: Boolean
+        get() = GameOperationGate.isBusy()
+        set(value) {
+            if (value) check(GameOperationGate.begin(operationOwner)) { "上次实例操作尚未完成" }
+            else GameOperationGate.end(operationOwner)
+            renderBusy(GameOperationGate.isBusy())
+        }
+
+    private fun renderBusy(value: Boolean) {
+        controls.forEach { it.isEnabled = !value; it.alpha = if (value) 0.5f else 1f }
+        contentPanel?.setBusy(value)
+    }
     private val logExporter = registerForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
         if (uri != null && !busy) {
-            busy = true
-            lifecycleScope.launch {
-                val result = withContext(Dispatchers.IO) { runCatching {
+            io({
                     require(logFile.isFile) { getString(R.string.pvzce_no_logs) }
                     val output = contentResolver.openOutputStream(uri, "wt") ?: error("无法写入目标文件")
                     output.use { out -> logFile.inputStream().use { it.copyTo(out) } }
-                } }
-                result.onSuccess { status.text = "日志已导出" }.onFailure { showError(it) }
-                busy = false
-            }
+            }) { status.text = "日志已导出" }
         }
     }
     private data class Transfer(val instance: String, val root: File, val kind: String,
@@ -103,7 +117,7 @@ class GenericLauncherActivity : FCLActivity() {
 
     private fun target(request: Transfer): PvzceContentStore {
         val registered = instanceStore.get(request.instance)
-        check(!registered.archived && registered.directory().canonicalFile == request.root.canonicalFile) {
+        check(!registered.archived && registered.directory().canonicalFile == request.root.absoluteFile) {
             "导入目标实例或目录已改变，请重新选择文件"
         }
         return PvzceContentStore(request.root)
@@ -119,14 +133,14 @@ class GenericLauncherActivity : FCLActivity() {
                     onFailure = { showError(it) })
             } finally {
                 busy = false
-                if (selectedPage == 1) contentPanel?.reload()
+                if (!isDestroyed && !isFinishing && selectedPage == 1) contentPanel?.reload()
             }
         }
     }
 
     private val importer = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         val transfer = consume("files") ?: return@registerForActivityResult
-        if (uris.isEmpty()) return@registerForActivityResult
+        if (uris.isEmpty()) { resumeContent(); return@registerForActivityResult }
         if (transfer.kind == "JAR" && transfer.pvzce && uris.size != 1) {
             showError(IllegalArgumentException("PVZCE 每次选择一个游戏 JAR")); return@registerForActivityResult
         }
@@ -156,7 +170,7 @@ class GenericLauncherActivity : FCLActivity() {
 
     private val packImporter = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         val transfer = consume("tree") ?: return@registerForActivityResult
-        if (uri == null) return@registerForActivityResult
+        if (uri == null) { resumeContent(); return@registerForActivityResult }
         io({
             val kind = PvzceContentStore.Kind.valueOf(transfer.kind)
             GameContentImporter.tree(contentResolver, uri, target(transfer).directory(kind), kind)
@@ -165,7 +179,7 @@ class GenericLauncherActivity : FCLActivity() {
 
     private val archiveImporter = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         val transfer = consume("zip") ?: return@registerForActivityResult
-        if (uri == null) return@registerForActivityResult
+        if (uri == null) { resumeContent(); return@registerForActivityResult }
         io({
             contentResolver.openInputStream(uri)?.use {
                 target(transfer).importZip(PvzceContentStore.Kind.valueOf(transfer.kind), it)
@@ -175,7 +189,7 @@ class GenericLauncherActivity : FCLActivity() {
 
     private val contentExporter = registerForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
         val transfer = consume("export") ?: return@registerForActivityResult
-        if (uri == null) return@registerForActivityResult
+        if (uri == null) { resumeContent(); return@registerForActivityResult }
         io({
             val temporary = File.createTempFile("pvzce-backup-", ".zip", cacheDir)
             try {
@@ -190,6 +204,10 @@ class GenericLauncherActivity : FCLActivity() {
         if (busy || !save()) return
         runCatching { request("files", "JAR"); importer.launch(arrayOf("*/*")) }
             .onFailure { transfers.edit().clear().commit(); showError(it) }
+    }
+
+    private fun resumeContent() {
+        if (initialized && selectedPage == 1) contentPanel?.reload()
     }
 
     private fun importContent(kind: PvzceContentStore.Kind, archive: Boolean) {
@@ -419,8 +437,15 @@ class GenericLauncherActivity : FCLActivity() {
         fields.getValue("jar").doAfterTextChanged { refreshSummary() }
         pvzce.setOnCheckedChangeListener { _, _ -> refreshSummary() }
         initialized = true
-        if (wasFresh) runCatching { PvzceProfile.prepareDirectory(first.directory()) }.onFailure { showError(it) }
+        GameOperationGate.addListener(operationListener)
+        operationListener.run()
+        if (wasFresh && fresh && !first.directory().exists()) {
+            runCatching { PvzceProfile.prepareDirectory(first.directory()) }.onFailure { showError(it) }
+        }
         refreshInstances()
+        if (savedInstanceState != null && savedInstanceState.getString("instance") == instanceId) {
+            contentPanel?.restoreState(savedInstanceState.getInt("content_kind", 0), savedInstanceState.getString("content_query", ""))
+        }
         instances.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onNothingSelected(parent: AdapterView<*>?) = Unit
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
@@ -605,6 +630,7 @@ class GenericLauncherActivity : FCLActivity() {
     }
 
     override fun onDestroy() {
+        GameOperationGate.removeListener(operationListener)
         ThemeEngine.removeRefreshListener(themeRefresh)
         super.onDestroy()
     }
@@ -655,6 +681,8 @@ class GenericLauncherActivity : FCLActivity() {
         if (!initialized) { super.onSaveInstanceState(outState); return }
         outState.putBoolean("pvzce", pvzce.isChecked)
         outState.putString("instance", instanceId)
+        outState.putInt("content_kind", contentPanel?.kind?.ordinal ?: 0)
+        outState.putString("content_query", contentPanel?.query ?: "")
         outState.putInt("page", selectedPage)
         fields.forEach { (key, value) -> outState.putString("field_$key", value.text.toString()) }
         super.onSaveInstanceState(outState)
@@ -669,26 +697,15 @@ class GenericLauncherActivity : FCLActivity() {
 
     private fun install() {
         if (busy) return
-        busy = true
-        installButton.isEnabled = false
-        launchButton.isEnabled = false
         val runtime = runtimes.selectedItem.toString()
         status.text = "正在安装 $runtime 与随附图形 / AWT 组件…"
-        lifecycleScope.launch {
-            val result = withContext(Dispatchers.IO) {
-                runCatching {
-                    RuntimeUtils.installJava(this@GenericLauncherActivity, File(FCLPath.JAVA_PATH, runtime).absolutePath, "app_runtime/java/$runtime")
-                    RuntimeUtils.install(this@GenericLauncherActivity, FCLPath.LWJGL_DIR, "app_runtime/lwjgl")
-                    RuntimeUtils.install(this@GenericLauncherActivity, FCLPath.CACIOCAVALLO_8_DIR, "app_runtime/caciocavallo")
-                    RuntimeUtils.install(this@GenericLauncherActivity, FCLPath.CACIOCAVALLO_17_DIR, "app_runtime/caciocavallo17")
-                    RuntimeUtils.installJna(this@GenericLauncherActivity, FCLPath.JNA_PATH, "app_runtime/jna")
-                }
-            }
-            result.onSuccess { status.text = "已安装 $runtime 及随附组件，可选择游戏 JAR 后启动。" }.onFailure { showError(it) }
-            busy = false
-            installButton.isEnabled = true
-            launchButton.isEnabled = true
-        }
+        io({
+            RuntimeUtils.installJava(this, File(FCLPath.JAVA_PATH, runtime).absolutePath, "app_runtime/java/$runtime")
+            RuntimeUtils.install(this, FCLPath.LWJGL_DIR, "app_runtime/lwjgl")
+            RuntimeUtils.install(this, FCLPath.CACIOCAVALLO_8_DIR, "app_runtime/caciocavallo")
+            RuntimeUtils.install(this, FCLPath.CACIOCAVALLO_17_DIR, "app_runtime/caciocavallo17")
+            RuntimeUtils.installJna(this, FCLPath.JNA_PATH, "app_runtime/jna")
+        }) { status.text = "已安装 $runtime 及随附组件，可选择游戏 JAR 后启动。" }
     }
 
     private fun startJava() {
@@ -704,21 +721,23 @@ class GenericLauncherActivity : FCLActivity() {
         val lwjglVersion = lwjgl.selectedItem.toString()
         val usePvzce = pvzce.isChecked
         lifecycleScope.launch {
-            // Native bridge class initialization is kept on the main thread (Choreographer).
-            val validated = withContext(Dispatchers.IO) {
-                runCatching {
-                    if (usePvzce) PvzceProfile.configure(rawSpec, lwjglVersion)
-                    else rawSpec.also { it.validate() }
+            try {
+                // Native bridge class initialization is kept on the main thread (Choreographer).
+                val validated = withContext(Dispatchers.IO) {
+                    runCatching {
+                        if (usePvzce) PvzceProfile.configure(rawSpec, lwjglVersion)
+                        else rawSpec.also { it.validate() }
+                    }
                 }
+                if (validated.isFailure) showError(validated.exceptionOrNull()!!)
+                else runCatching {
+                    val bridge = GenericJavaLauncher.prepare(this@GenericLauncherActivity, validated.getOrThrow(), rendererId, lwjglVersion)
+                    GenericJvmActivity.pendingBridge = bridge
+                    startActivity(Intent(this@GenericLauncherActivity, GenericJvmActivity::class.java))
+                }.onFailure { showError(it) }
+            } finally {
+                busy = false
             }
-            if (validated.isFailure) showError(validated.exceptionOrNull()!!)
-            else runCatching {
-                val bridge = GenericJavaLauncher.prepare(this@GenericLauncherActivity, validated.getOrThrow(), rendererId, lwjglVersion)
-                GenericJvmActivity.pendingBridge = bridge
-                startActivity(Intent(this@GenericLauncherActivity, GenericJvmActivity::class.java))
-            }.onFailure { showError(it) }
-            busy = false
-            launchButton.isEnabled = true
         }
     }
 }
