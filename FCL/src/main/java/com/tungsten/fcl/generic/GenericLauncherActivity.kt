@@ -149,21 +149,22 @@ class GenericLauncherActivity : FCLActivity() {
             val mods = transfer.kind == "MODS"
             val destination = if (mods) root.directory(PvzceContentStore.Kind.MODS)
                 else File(filesDir, "instance_jars/" + transfer.instance)
-            uris.map { uri ->
+            val paths = uris.map { uri ->
                 val name = contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use {
                     if (it.moveToFirst()) it.getString(0) else null
                 } ?: error("无法读取文件名")
                 GameContentImporter.file(contentResolver, uri, destination, name, mods).absolutePath
             }
-        }) { paths ->
             if (transfer.kind == "JAR") {
                 val config = instanceStore.get(transfer.instance).config.toMutableMap()
                 if (transfer.pvzce) { config["jar"] = paths.single(); config["classpath"] = "" }
                 else if (paths.size == 1 && config["jar"].isNullOrEmpty()) config["jar"] = paths[0]
                 else config["classpath"] = (JavaLaunchSpec.lines(config["classpath"] ?: "") + paths).joinToString("\n")
                 instanceStore.update(transfer.instance, config)
-                if (transfer.instance == instanceId) loadInstance(instanceId, false)
             }
+            paths
+        }) { paths ->
+            if (transfer.kind == "JAR" && transfer.instance == instanceId) loadInstance(instanceId, false)
             status.text = "已导入目标实例：\n" + paths.joinToString("\n")
         }
     }
@@ -625,7 +626,7 @@ class GenericLauncherActivity : FCLActivity() {
     }
 
     override fun onPause() {
-        if (initialized) save(false)
+        if (initialized && !busy) save(false)
         super.onPause()
     }
 
@@ -696,7 +697,7 @@ class GenericLauncherActivity : FCLActivity() {
     }
 
     private fun install() {
-        if (busy) return
+        if (busy || !save()) return
         val runtime = runtimes.selectedItem.toString()
         status.text = "正在安装 $runtime 与随附图形 / AWT 组件…"
         io({

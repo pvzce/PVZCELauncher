@@ -262,6 +262,9 @@ class PvzceLauncherUiTest {
             assertTrue(GameOperationGate.begin(token))
             try {
                 idle()
+                val store = GameInstanceStore(context.filesDir)
+                val instance = store.selected()
+                store.update(instance.id, instance.config.toMutableMap().apply { put("jar", "io-completed.jar") })
                 scenario.recreate()
                 scenario.onActivity {
                     assertFalse(it.findViewById<View>(R.id.pvzce_start).isEnabled)
@@ -269,7 +272,10 @@ class PvzceLauncherUiTest {
                 }
             } finally { GameOperationGate.end(token) }
             waitReady(scenario)
-            scenario.onActivity { assertTrue(it.findViewById<View>(R.id.pvzce_instance).isEnabled) }
+            scenario.onActivity {
+                assertTrue(it.findViewById<View>(R.id.pvzce_instance).isEnabled)
+                assertEquals("io-completed.jar", it.findViewById<EditText>(R.id.pvzce_jar).text.toString())
+            }
         }
     }
 
