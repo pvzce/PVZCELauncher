@@ -1,4 +1,11 @@
 <resources>
+    <item name="pvzce_content_tabs" type="id" />
+    <item name="pvzce_instance" type="id" />
+    <item name="pvzce_instance_create" type="id" />
+    <item name="pvzce_instance_copy" type="id" />
+    <item name="pvzce_instance_rename" type="id" />
+    <item name="pvzce_instance_archive" type="id" />
+    <item name="pvzce_instance_restore" type="id" />
     <item name="pvzce_jar" type="id" />
     <item name="pvzce_classpath" type="id" />
     <item name="pvzce_main" type="id" />

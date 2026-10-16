@@ -24,6 +24,8 @@ import com.mio.manager.RendererManager
 import com.tungsten.fcl.util.RuntimeUtils
 import com.tungsten.fclauncher.utils.FCLPath
 import com.tungsten.fcllibrary.component.FCLActivity
+import com.tungsten.fcllibrary.component.dialog.EditDialog
+import com.tungsten.fcllibrary.component.dialog.FCLAlertDialog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -41,8 +43,12 @@ class GenericLauncherActivity : FCLActivity() {
     private val runtimeNames = listOf("jre8", "jre17", "jre21", "jre25")
     private val lwjglNames = listOf("3.3.3", "3.4.1")
     private lateinit var pvzce: CheckBox
-    private var importMods = false
-    private var packType = "resourcepacks"
+    private lateinit var instanceStore: GameInstanceStore
+    private var instanceId = ""
+    private var instanceName = ""
+    private lateinit var instances: Spinner
+    private var instanceIds = emptyList<String>()
+    private var contentPanel: PvzceContentPanel? = null
     private val controls = mutableListOf<View>()
     private val pages = mutableListOf<View>()
     private val navIds = listOf(R.id.pvzce_nav_home, R.id.pvzce_nav_content, R.id.pvzce_nav_settings,
@@ -56,86 +62,197 @@ class GenericLauncherActivity : FCLActivity() {
     private var initialized = false
     private val themeRefresh = Runnable { refreshShell() }
     private val logFile get() = File(FCLPath.LOG_DIR, "latest_jar_executor.log")
-    private var busy = false
-        set(value) {
-            field = value
-            controls.forEach { it.isEnabled = !value; it.alpha = if (value) 0.5f else 1f }
+    private val operationOwner = Any()
+    private var refreshAfterOperation = false
+    private val operationListener = Runnable { runOnUiThread {
+        if (!isDestroyed && initialized) {
+            if (GameOperationGate.isBusy() && !GameOperationGate.isOwnedBy(operationOwner)) refreshAfterOperation = true
+            renderBusy(GameOperationGate.isBusy())
+            if (!GameOperationGate.isBusy() && refreshAfterOperation) {
+                refreshAfterOperation = false
+                runCatching { loadInstance(instanceStore.selected().id, false); resumeContent() }
+                    .onFailure { showError(it) }
+            }
         }
+    } }
+    private var busy: Boolean
+        get() = GameOperationGate.isBusy()
+        set(value) {
+            if (value) check(GameOperationGate.begin(operationOwner)) { "上次实例操作尚未完成" }
+            else GameOperationGate.end(operationOwner)
+            renderBusy(GameOperationGate.isBusy())
+        }
+
+    private fun renderBusy(value: Boolean) {
+        controls.forEach { it.isEnabled = !value; it.alpha = if (value) 0.5f else 1f }
+        contentPanel?.setBusy(value)
+    }
     private val logExporter = registerForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
         if (uri != null && !busy) {
-            busy = true
-            lifecycleScope.launch {
-                val result = withContext(Dispatchers.IO) { runCatching {
+            io({
                     require(logFile.isFile) { getString(R.string.pvzce_no_logs) }
                     val output = contentResolver.openOutputStream(uri, "wt") ?: error("无法写入目标文件")
                     output.use { out -> logFile.inputStream().use { it.copyTo(out) } }
-                } }
-                result.onSuccess { status.text = "日志已导出" }.onFailure { showError(it) }
+            }) { status.text = "日志已导出" }
+        }
+    }
+    private data class Transfer(val instance: String, val root: File, val kind: String,
+                                val names: List<String>, val pvzce: Boolean)
+    private val transfers get() = getSharedPreferences("pvzce_pending_transfer", MODE_PRIVATE)
+
+    private fun request(mode: String, kind: String, names: List<String> = emptyList()) {
+        check(transfers.edit().clear().putString("mode", mode).putString("instance", instanceId)
+            .putString("root", instanceStore.get(instanceId).directory().absolutePath).putString("kind", kind)
+            .putStringSet("names", names.toSet()).putBoolean("pvzce", pvzce.isChecked).commit()) { "无法保存导入目标" }
+    }
+
+    private fun consume(mode: String): Transfer? {
+        if (transfers.getString("mode", "") != mode) return null
+        val result = Transfer(transfers.getString("instance", "")!!, File(transfers.getString("root", "")!!),
+            transfers.getString("kind", "")!!, transfers.getStringSet("names", emptySet())!!.toList(),
+            transfers.getBoolean("pvzce", true))
+        transfers.edit().clear().commit()
+        return result
+    }
+
+    private fun target(request: Transfer): PvzceContentStore {
+        val registered = instanceStore.get(request.instance)
+        check(!registered.archived && registered.directory().canonicalFile == request.root.absoluteFile) {
+            "导入目标实例或目录已改变，请重新选择文件"
+        }
+        return PvzceContentStore(request.root)
+    }
+
+    private fun <T> io(action: () -> T, success: (T) -> Unit) {
+        if (busy) { showError(IllegalStateException("操作尚未完成，请重试")); return }
+        busy = true
+        lifecycleScope.launch {
+            try {
+                val result = withContext(Dispatchers.IO) { runCatching(action) }
+                result.fold(onSuccess = { runCatching { success(it) }.onFailure { error -> showError(error) } },
+                    onFailure = { showError(it) })
+            } finally {
                 busy = false
+                if (!isDestroyed && !isFinishing && selectedPage == 1) contentPanel?.reload()
             }
         }
     }
+
     private val importer = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
-        if (busy || uris.isEmpty()) return@registerForActivityResult
-        if (pvzce.isChecked && !importMods && uris.size != 1) {
-            showError(IllegalArgumentException("PVZCE profile imports one shadow JAR at a time"))
-            return@registerForActivityResult
+        val transfer = consume("files") ?: return@registerForActivityResult
+        if (uris.isEmpty()) { resumeContent(); return@registerForActivityResult }
+        if (transfer.kind == "JAR" && transfer.pvzce && uris.size != 1) {
+            showError(IllegalArgumentException("PVZCE 每次选择一个游戏 JAR")); return@registerForActivityResult
         }
-        val pvzceImport = pvzce.isChecked
-        val dest = if (importMods) File(fields.getValue("work").text.toString(), "mods")
-            else File(filesDir, "games/imported")
-        busy = true
-        status.text = "正在导入所选文件…"
-        lifecycleScope.launch {
-            val result = withContext(Dispatchers.IO) {
-                runCatching {
-                    uris.map { uri ->
-                        val name = contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use {
-                            if (it.moveToFirst()) it.getString(0) else null
-                        } ?: throw IllegalArgumentException("Cannot determine filename")
-                        GameContentImporter.file(contentResolver, uri, dest, name, importMods).absolutePath
-                    }
-                }
+        io({
+            val root = target(transfer)
+            val mods = transfer.kind == "MODS"
+            val destination = if (mods) root.directory(PvzceContentStore.Kind.MODS)
+                else File(filesDir, "instance_jars/" + transfer.instance)
+            val paths = uris.map { uri ->
+                val name = contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use {
+                    if (it.moveToFirst()) it.getString(0) else null
+                } ?: error("无法读取文件名")
+                GameContentImporter.file(contentResolver, uri, destination, name, mods).absolutePath
             }
-            result.onSuccess { paths ->
-                if (importMods) {
-                    status.text = "模组已导入，重新启动游戏后加载：\n" + paths.joinToString("\n")
-                } else if (pvzceImport) {
-                    fields.getValue("jar").setText(paths.single())
-                    fields.getValue("classpath").setText("")
-                } else if (paths.size == 1 && fields.getValue("jar").text.isEmpty()) fields.getValue("jar").setText(paths[0])
-                else fields.getValue("classpath").setText((JavaLaunchSpec.lines(fields.getValue("classpath").text.toString()) + paths).joinToString("\n"))
-                if (!importMods) status.text = "已导入应用存储：\n" + paths.joinToString("\n")
-                save()
-            }.onFailure { showError(it) }
-            busy = false
+            if (transfer.kind == "JAR") {
+                val config = instanceStore.get(transfer.instance).config.toMutableMap()
+                if (transfer.pvzce) { config["jar"] = paths.single(); config["classpath"] = "" }
+                else if (paths.size == 1 && config["jar"].isNullOrEmpty()) config["jar"] = paths[0]
+                else config["classpath"] = (JavaLaunchSpec.lines(config["classpath"] ?: "") + paths).joinToString("\n")
+                instanceStore.update(transfer.instance, config)
+            }
+            paths
+        }) { paths ->
+            if (transfer.kind == "JAR" && transfer.instance == instanceId) loadInstance(instanceId, false)
+            status.text = "已导入目标实例：\n" + paths.joinToString("\n")
         }
     }
 
     private val packImporter = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
-        if (busy || uri == null) return@registerForActivityResult
-        val destination = File(fields.getValue("work").text.toString(), packType)
-        busy = true
-        status.text = "正在复制包目录…"
-        lifecycleScope.launch {
-            val result = withContext(Dispatchers.IO) {
-                runCatching { GameContentImporter.tree(contentResolver, uri, destination) }
+        val transfer = consume("tree") ?: return@registerForActivityResult
+        if (uri == null) { resumeContent(); return@registerForActivityResult }
+        io({
+            val kind = PvzceContentStore.Kind.valueOf(transfer.kind)
+            GameContentImporter.tree(contentResolver, uri, target(transfer).directory(kind), kind)
+        }) { status.text = "目录已导入：$it\n重新启动游戏后生效。" }
+    }
+
+    private val archiveImporter = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        val transfer = consume("zip") ?: return@registerForActivityResult
+        if (uri == null) { resumeContent(); return@registerForActivityResult }
+        io({
+            contentResolver.openInputStream(uri)?.use {
+                target(transfer).importZip(PvzceContentStore.Kind.valueOf(transfer.kind), it)
+            } ?: error("无法读取备份")
+        }) { status.text = "备份已导入目标实例，原有同名内容未覆盖。" }
+    }
+
+    private val contentExporter = registerForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
+        val transfer = consume("export") ?: return@registerForActivityResult
+        if (uri == null) { resumeContent(); return@registerForActivityResult }
+        io({
+            val temporary = File.createTempFile("pvzce-backup-", ".zip", cacheDir)
+            try {
+                temporary.outputStream().use { target(transfer).exportZip(PvzceContentStore.Kind.valueOf(transfer.kind), transfer.names, it) }
+                contentResolver.openOutputStream(uri, "wt")?.use { output -> temporary.inputStream().use { it.copyTo(output) } }
+                    ?: error("无法写入备份")
+            } finally { temporary.delete() }
+        }) { status.text = "备份已导出，包含所选目录的完整文件。" }
+    }
+
+    private fun importJar() {
+        if (busy || !save()) return
+        runCatching { request("files", "JAR"); importer.launch(arrayOf("*/*")) }
+            .onFailure { transfers.edit().clear().commit(); showError(it) }
+    }
+
+    private fun resumeContent() {
+        if (initialized && selectedPage == 1) contentPanel?.reload()
+    }
+
+    private fun importContent(kind: PvzceContentStore.Kind, archive: Boolean) {
+        if (busy || !validateContentDirectory()) return
+        runCatching {
+            val mode = if (archive) "zip" else if (kind == PvzceContentStore.Kind.MODS) "files" else "tree"
+            request(mode, kind.name)
+            when (mode) {
+                "zip" -> archiveImporter.launch(arrayOf("application/zip", "application/octet-stream"))
+                "files" -> importer.launch(arrayOf("*/*"))
+                else -> packImporter.launch(null)
             }
-            result.onSuccess { status.text = "包目录已导入：$it\n请在游戏的包管理界面启用或重载。" }
-                .onFailure { showError(it) }
-            busy = false
-        }
+        }.onFailure { transfers.edit().clear().commit(); showError(it) }
+    }
+
+    private fun exportContent(kind: PvzceContentStore.Kind, names: List<String>) {
+        if (busy || !save()) return
+        runCatching {
+            request("export", kind.name, names)
+            contentExporter.launch("pvzce-${kind.directory}-backup.zip")
+        }.onFailure { transfers.edit().clear().commit(); showError(it) }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
-        importMods = savedInstanceState?.getBoolean("import_mods") ?: false
-        packType = savedInstanceState?.getString("pack_type") ?: "resourcepacks"
         RendererManager.init(this)
         setContentView(R.layout.activity_pvzce_launcher)
-        val prefs = getSharedPreferences("generic_launch", MODE_PRIVATE)
-        val fresh = !prefs.contains("jar") && !prefs.contains("pvzce")
+        val legacy = getSharedPreferences("generic_launch", MODE_PRIVATE)
+        val wasFresh = !legacy.contains("jar") && !legacy.contains("pvzce")
+        val first = runCatching {
+            instanceStore = GameInstanceStore(filesDir)
+            val config = defaultConfig(wasFresh)
+            legacy.all.forEach { (key, value) -> if (key in config) config[key] = value.toString() }
+            instanceStore.initialize(config)
+        }.getOrElse {
+            FCLAlertDialog.Builder(this).setMessage("实例配置读取失败，原数据保留：${it.message}")
+                .setPositiveButton("关闭") { finish() }.create().show()
+            return
+        }
+        instanceId = first.id
+        instanceName = first.name
+        val prefs = first.config
+        val fresh = prefs["pvzce"]?.toBoolean() ?: false
         val container = findViewById<FrameLayout>(R.id.pvzce_pages)
         fun page(id: Int): LinearLayout {
             val body = LinearLayout(this).apply {
@@ -165,7 +282,7 @@ class GenericLauncherActivity : FCLActivity() {
                 setSingleLine(!multiline)
                 inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS or
                     (if (multiline) android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE else 0)
-                setText(prefs.getString(key, default))
+                setText(prefs[key] ?: default)
                 parent.addView(this, LinearLayout.LayoutParams(-1, -2))
                 controls.add(this)
             }
@@ -186,31 +303,51 @@ class GenericLauncherActivity : FCLActivity() {
             return Spinner(this).apply {
                 this.id = id
                 adapter = ArrayAdapter(this@GenericLauncherActivity, android.R.layout.simple_spinner_dropdown_item, entries)
-                setSelection(values.indexOf(prefs.getString(key, default)).coerceAtLeast(0))
+                setSelection(values.indexOf(prefs[key] ?: default).coerceAtLeast(0))
                 minimumHeight = dp(48)
                 parent.addView(this, LinearLayout.LayoutParams(-1, -2))
                 controls.add(this)
             }
         }
         val home = page(R.id.pvzce_page_home)
+        text(home, R.string.pvzce_instance)
+        instances = Spinner(this).apply {
+            id = R.id.pvzce_instance
+            minimumHeight = dp(48)
+        }
+        home.addView(instances)
+        controls.add(instances)
+        action(home, R.id.pvzce_instance_create, R.string.pvzce_instance_create) { editInstanceName(false) }
+        action(home, R.id.pvzce_instance_copy, R.string.pvzce_instance_copy) { editInstanceName(true) }
+        action(home, R.id.pvzce_instance_rename, R.string.pvzce_instance_rename) {
+            EditDialog(this, instanceStore.get(instanceId).name) { name ->
+                runCatching { instanceStore.rename(instanceId, name); refreshInstances(); refreshSummary() }.onFailure { showError(it) }
+            }.apply { setTitle("重命名实例") }.show()
+        }
+        action(home, R.id.pvzce_instance_archive, R.string.pvzce_instance_archive) {
+            FCLAlertDialog.Builder(this).setTitle("归档当前实例")
+                .setMessage("归档后可恢复，游戏 JAR、模组、包和存档都保留原处。")
+                .setPositiveButton("归档") {
+                    if (save()) runCatching {
+                        instanceStore.archive(instanceId, true)
+                        loadInstance(instanceStore.selected().id)
+                    }.onFailure { showError(it) }
+                }.setNegativeButton("取消", null).create().show()
+        }
+        action(home, R.id.pvzce_instance_restore, R.string.pvzce_instance_restore) { restoreInstances() }
         text(home, R.string.pvzce_intro)
         field(home, "jar", R.id.pvzce_jar, R.string.pvzce_jar)
         action(home, R.id.pvzce_preset, R.string.pvzce_preset) { applyPvzcePreset() }
         status = findViewById<TextView>(R.id.pvzce_status).apply { setTextIsSelectable(true) }
 
-        val content = page(R.id.pvzce_page_content)
-        text(content, R.string.pvzce_content_hint)
-        action(content, R.id.pvzce_import_mods, R.string.pvzce_import_mods) {
-            if (validateContentDirectory()) { importMods = true; save(); importer.launch(arrayOf("*/*")) }
-        }
-        for ((kind, id, label) in listOf(
-            Triple("resourcepacks", R.id.pvzce_import_resources, R.string.pvzce_import_resources),
-            Triple("datapacks", R.id.pvzce_import_data, R.string.pvzce_import_data))) {
-            action(content, id, label) {
-                if (validateContentDirectory()) { packType = kind; save(); packImporter.launch(null) }
-            }
-        }
-        action(content, R.id.pvzce_browse, R.string.pvzce_browse) { browseGameData() }
+        contentPanel = PvzceContentPanel(this, {
+            check(pvzce.isChecked) { "请启用 PVZCE 预设后管理游戏内容" }
+            check(save(false)) { "请先修正实例配置：${status.text}" }
+            PvzceContentStore(instanceStore.get(instanceId).directory())
+        }, { busy = it }, { status.text = it }, { showError(it) }, ::importContent, ::exportContent)
+        val content = contentPanel!!.view.apply { id = R.id.pvzce_page_content }
+        pages.add(content)
+        container.addView(content, FrameLayout.LayoutParams(-1, -1))
 
         val settings = page(R.id.pvzce_page_settings)
         text(settings, R.string.pvzce_runtime_hint)
@@ -237,7 +374,7 @@ class GenericLauncherActivity : FCLActivity() {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                 val themePrefs = getSharedPreferences("launcher", MODE_PRIVATE)
                 if (themePrefs.getInt("themeMode", 0) == position) return
-                save()
+                if (!save()) return
                 themePrefs.edit { putInt("themeMode", position) }
                 AppCompatDelegate.setDefaultNightMode(when (position) {
                     1 -> AppCompatDelegate.MODE_NIGHT_NO
@@ -258,7 +395,7 @@ class GenericLauncherActivity : FCLActivity() {
         pvzce = FCLCheckBox(this).apply {
             id = R.id.pvzce_profile
             setText(R.string.pvzce_mode)
-            isChecked = prefs.getBoolean("pvzce", fresh)
+            isChecked = prefs["pvzce"]?.toBoolean() ?: fresh
             advanced.addView(this)
             controls.add(this)
         }
@@ -267,7 +404,8 @@ class GenericLauncherActivity : FCLActivity() {
         field(advanced, "jvm", R.id.pvzce_jvm, R.string.pvzce_jvm, if (fresh) "-Xmx1024m" else "-Xmx512m", true)
         field(advanced, "args", R.id.pvzce_args, R.string.pvzce_args, multiline = true)
         field(advanced, "work", R.id.pvzce_work, R.string.pvzce_work, File(filesDir, if (fresh) "games/pvzce" else "games").absolutePath)
-        action(advanced, R.id.pvzce_save, R.string.pvzce_save) { save(); status.setText(R.string.pvzce_saved) }
+        action(advanced, R.id.pvzce_browse, R.string.pvzce_browse) { if (save()) browseGameData() }
+        action(advanced, R.id.pvzce_save, R.string.pvzce_save) { if (save()) status.setText(R.string.pvzce_saved) }
 
         val logs = page(R.id.pvzce_page_logs)
         text(logs, R.string.pvzce_log_hint)
@@ -288,31 +426,114 @@ class GenericLauncherActivity : FCLActivity() {
         launchButton.setOnClickListener { startJava() }
         controls.add(launchButton)
         findViewById<Button>(R.id.pvzce_jar_card).also { card ->
-            card.setOnClickListener { if (!busy) { importMods = false; save(); importer.launch(arrayOf("*/*")) } }
+            card.setOnClickListener { importJar() }
             controls.add(card)
         }
         findViewById<Button>(R.id.pvzce_render_card).setOnClickListener { selectPage(2) }
         navIds.forEachIndexed { index, id -> findViewById<View>(id).setOnClickListener { selectPage(index) } }
-        if (savedInstanceState != null) {
+        if (savedInstanceState != null && savedInstanceState.getString("instance") == instanceId) {
             pvzce.isChecked = savedInstanceState.getBoolean("pvzce")
             for (key in fields.keys) savedInstanceState.getString("field_$key")?.let { fields.getValue(key).setText(it) }
         }
         fields.getValue("jar").doAfterTextChanged { refreshSummary() }
         pvzce.setOnCheckedChangeListener { _, _ -> refreshSummary() }
         initialized = true
-        if (fresh) { runCatching { PvzceProfile.prepareDirectory(File(fields.getValue("work").text.toString())) }.onFailure { showError(it) }; save() }
-        selectPage(savedInstanceState?.getInt("page") ?: prefs.getInt("page", 0))
+        GameOperationGate.addListener(operationListener)
+        operationListener.run()
+        if (wasFresh && fresh && !first.directory().exists()) {
+            runCatching { PvzceProfile.prepareDirectory(first.directory()) }.onFailure { showError(it) }
+        }
+        refreshInstances()
+        if (savedInstanceState != null && savedInstanceState.getString("instance") == instanceId) {
+            contentPanel?.restoreState(savedInstanceState.getInt("content_kind", 0), savedInstanceState.getString("content_query", ""))
+        }
+        instances.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                val next = instanceIds.getOrNull(position) ?: return
+                if (next == instanceId || busy) return
+                if (save()) runCatching { loadInstance(next) }.onFailure { showError(it); refreshInstances() }
+                else refreshInstances()
+            }
+        }
+        selectPage(savedInstanceState?.getInt("page") ?: legacy.getInt("page", 0))
         ThemeEngine.addRefreshListener(themeRefresh)
         refreshShell()
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 if (busy) return
-                if (selectedPage != 0) selectPage(0) else { save(); finish() }
+                if (selectedPage != 0) selectPage(0) else if (save()) finish()
             }
         })
     }
 
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
+
+    private fun defaultConfig(pvzceMode: Boolean = true) = linkedMapOf(
+        "jar" to "", "classpath" to "", "main" to if (pvzceMode) PvzceProfile.MAIN_CLASS else "",
+        "jvm" to if (pvzceMode) "-Xmx1024m" else "-Xmx512m", "args" to "",
+        "work" to File(filesDir, if (pvzceMode) "games/pvzce" else "games").absolutePath,
+        "pvzce" to pvzceMode.toString(), "runtime" to if (pvzceMode) "jre25" else "jre8",
+        "lwjgl" to if (pvzceMode) PvzceProfile.LWJGL else lwjglNames.first(),
+        "renderer" to if (pvzceMode) RendererManager.RENDERER_VIRGL.id else RendererManager.rendererList.first().id)
+
+    private fun refreshInstances() {
+        val items = instanceStore.list(false)
+        instanceName = items.firstOrNull { it.id == instanceId }?.name ?: instanceName
+        instanceIds = items.map { it.id }
+        instances.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, items.map { it.name })
+        instances.setSelection(instanceIds.indexOf(instanceId).coerceAtLeast(0))
+    }
+
+    private fun loadInstance(id: String, reloadContent: Boolean = true) {
+        instanceStore.select(id)
+        val config = instanceStore.get(id).config
+        instanceId = id
+        fields.forEach { (key, field) -> field.setText(config[key] ?: "") }
+        pvzce.isChecked = config["pvzce"]?.toBoolean() ?: true
+        runtimes.setSelection(runtimeNames.indexOf(config["runtime"]).coerceAtLeast(0))
+        lwjgl.setSelection(lwjglNames.indexOf(config["lwjgl"]).coerceAtLeast(0))
+        renderers.setSelection(RendererManager.rendererList.indexOfFirst { it.id == config["renderer"] }.coerceAtLeast(0))
+        refreshInstances()
+        refreshSummary()
+        if (reloadContent && selectedPage == 1) contentPanel?.reload(true)
+        status.text = "当前实例：${instanceStore.get(id).name}"
+    }
+
+    private fun editInstanceName(copy: Boolean) {
+        EditDialog(this) { name ->
+            if (save()) runCatching {
+                val template = if (copy) instanceStore.get(instanceId).config else defaultConfig()
+                loadInstance(instanceStore.create(name, template).id)
+                status.text = if (copy) "启动配置已复制；新实例的模组、包和存档为空。" else "已创建独立实例。"
+            }.onFailure { showError(it) }
+        }.apply { setTitle(if (copy) "复制配置到空实例" else "新建实例") }.show()
+    }
+
+    private fun restoreInstances() {
+        runCatching {
+            val items = instanceStore.list(true)
+            if (items.isEmpty()) { status.text = "没有已归档实例"; return }
+            val dialog = com.tungsten.fcllibrary.component.dialog.FCLDialog(this)
+            val body = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+            items.forEach { item ->
+                val button = layoutInflater.inflate(R.layout.pvzce_action_button, body, false) as FCLButton
+                button.text = item.name
+                button.setOnClickListener {
+                    if (save()) runCatching {
+                        instanceStore.archive(item.id, false)
+                        loadInstance(item.id)
+                        dialog.dismiss()
+                    }.onFailure { showError(it) }
+                }
+                body.addView(button)
+            }
+            dialog.setContentView(ScrollView(this).apply { addView(body) })
+            dialog.show()
+            dialog.window?.setLayout((resources.displayMetrics.widthPixels * .7f).toInt(),
+                (resources.displayMetrics.heightPixels * .7f).toInt())
+        }.onFailure { showError(it) }
+    }
 
     private fun selectPage(index: Int) {
         selectedPage = index.coerceIn(pages.indices)
@@ -324,6 +545,7 @@ class GenericLauncherActivity : FCLActivity() {
             refresh(getString(titles[selectedPage]))
         }
         if (selectedPage == 4) refreshLogs()
+        if (selectedPage == 1 && !transfers.contains("mode")) contentPanel?.reload(true)
     }
 
     private fun refreshShell() {
@@ -341,6 +563,7 @@ class GenericLauncherActivity : FCLActivity() {
         refreshNavigation()
         fields.values.forEach { it.setTextColor(theme.getColor2()); it.setHintTextColor(theme.getColor2()) }
         pvzce.setTextColor(theme.getColor2())
+        contentPanel?.refreshTheme()
         refreshSummary()
     }
 
@@ -363,7 +586,7 @@ class GenericLauncherActivity : FCLActivity() {
         if (!initialized) return
         val jar = fields.getValue("jar").text.toString()
         findViewById<TextView>(R.id.pvzce_summary).text =
-            (if (pvzce.isChecked) "PVZCE" else "通用 Java") + "\n" +
+            instanceName + "\n" +
                 (if (jar.isBlank()) "尚未选择游戏 JAR" else File(jar).name)
         launchButton.setText(if (pvzce.isChecked) R.string.pvzce_launch else R.string.pvzce_generic_launch)
     }
@@ -403,18 +626,20 @@ class GenericLauncherActivity : FCLActivity() {
     }
 
     override fun onPause() {
-        if (initialized) save()
+        if (initialized && !busy) save(false)
         super.onPause()
     }
 
     override fun onDestroy() {
+        GameOperationGate.removeListener(operationListener)
         ThemeEngine.removeRefreshListener(themeRefresh)
         super.onDestroy()
     }
 
     private fun validateContentDirectory(): Boolean = runCatching {
         require(pvzce.isChecked) { "Apply the PVZCE preset before importing game content" }
-        PvzceProfile.prepareDirectory(File(fields.getValue("work").text.toString()))
+        check(save()) { "实例配置未保存" }
+        PvzceContentStore(instanceStore.get(instanceId).directory())
     }.onFailure { showError(it) }.isSuccess
 
     private fun applyPvzcePreset() {
@@ -422,7 +647,8 @@ class GenericLauncherActivity : FCLActivity() {
             .setMessage(R.string.pvzce_preset_message)
             .setNegativeButton(R.string.pvzce_cancel, null).setPositiveButton(R.string.pvzce_apply) { _, _ ->
                 runCatching {
-                    val work = PvzceProfile.prepareDirectory(File(filesDir, "games/pvzce"))
+                    check(save()) { "请先修正实例目录" }
+                    val work = PvzceProfile.prepareDirectory(instanceStore.get(instanceId).directory())
                     pvzce.isChecked = true
                     fields.getValue("classpath").setText("")
                     fields.getValue("main").setText(PvzceProfile.MAIN_CLASS)
@@ -434,64 +660,58 @@ class GenericLauncherActivity : FCLActivity() {
                     renderers.setSelection(RendererManager.rendererList.indexOfFirst {
                         it.id == RendererManager.RENDERER_VIRGL.id
                     }.coerceAtLeast(0))
-                    save()
-                    status.text = getString(R.string.pvzce_ready)
+                    if (save()) status.text = getString(R.string.pvzce_ready)
                 }.onFailure { showError(it) }
             }.show()
     }
 
-    private fun save() {
-        getSharedPreferences("generic_launch", MODE_PRIVATE).edit {
-            fields.forEach { (key, value) -> putString(key, value.text.toString()) }
-            putBoolean("pvzce", pvzce.isChecked)
-            putInt("page", selectedPage)
-            putString("runtime", runtimes.selectedItem.toString())
-            putString("renderer", RendererManager.rendererList[renderers.selectedItemPosition].id)
-            putString("lwjgl", lwjgl.selectedItem.toString())
-        }
+    private fun save(showDialog: Boolean = true): Boolean {
+        if (!initialized) return true
+        return runCatching {
+            val config = fields.mapValues { it.value.text.toString() }.toMutableMap()
+            config["pvzce"] = pvzce.isChecked.toString()
+            config["runtime"] = runtimes.selectedItem.toString()
+            config["renderer"] = RendererManager.rendererList[renderers.selectedItemPosition].id
+            config["lwjgl"] = lwjgl.selectedItem.toString()
+            instanceStore.update(instanceId, config)
+            getSharedPreferences("generic_launch", MODE_PRIVATE).edit { putInt("page", selectedPage) }
+        }.onFailure { if (showDialog) showError(it) else status.text = "配置未保存：${it.message}" }.isSuccess
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
+        if (!initialized) { super.onSaveInstanceState(outState); return }
         outState.putBoolean("pvzce", pvzce.isChecked)
-        outState.putBoolean("import_mods", importMods)
-        outState.putString("pack_type", packType)
+        outState.putString("instance", instanceId)
+        outState.putInt("content_kind", contentPanel?.kind?.ordinal ?: 0)
+        outState.putString("content_query", contentPanel?.query ?: "")
         outState.putInt("page", selectedPage)
         fields.forEach { (key, value) -> outState.putString("field_$key", value.text.toString()) }
         super.onSaveInstanceState(outState)
     }
 
     private fun showError(error: Throwable) {
-        status.text = "操作失败：${error.message ?: error}"
-        androidx.appcompat.app.AlertDialog.Builder(this).setTitle(R.string.pvzce_error).setMessage(status.text).setPositiveButton(R.string.pvzce_ok, null).show()
+        val message = "操作失败：${error.message ?: error}"
+        if (::status.isInitialized) status.text = message
+        FCLAlertDialog.Builder(this).setTitle(getString(R.string.pvzce_error)).setMessage(message)
+            .setPositiveButton(getString(R.string.pvzce_ok), null).create().show()
     }
 
     private fun install() {
-        if (busy) return
-        busy = true
-        installButton.isEnabled = false
-        launchButton.isEnabled = false
+        if (busy || !save()) return
         val runtime = runtimes.selectedItem.toString()
         status.text = "正在安装 $runtime 与随附图形 / AWT 组件…"
-        lifecycleScope.launch {
-            val result = withContext(Dispatchers.IO) {
-                runCatching {
-                    RuntimeUtils.installJava(this@GenericLauncherActivity, File(FCLPath.JAVA_PATH, runtime).absolutePath, "app_runtime/java/$runtime")
-                    RuntimeUtils.install(this@GenericLauncherActivity, FCLPath.LWJGL_DIR, "app_runtime/lwjgl")
-                    RuntimeUtils.install(this@GenericLauncherActivity, FCLPath.CACIOCAVALLO_8_DIR, "app_runtime/caciocavallo")
-                    RuntimeUtils.install(this@GenericLauncherActivity, FCLPath.CACIOCAVALLO_17_DIR, "app_runtime/caciocavallo17")
-                    RuntimeUtils.installJna(this@GenericLauncherActivity, FCLPath.JNA_PATH, "app_runtime/jna")
-                }
-            }
-            result.onSuccess { status.text = "已安装 $runtime 及随附组件，可选择游戏 JAR 后启动。" }.onFailure { showError(it) }
-            busy = false
-            installButton.isEnabled = true
-            launchButton.isEnabled = true
-        }
+        io({
+            RuntimeUtils.installJava(this, File(FCLPath.JAVA_PATH, runtime).absolutePath, "app_runtime/java/$runtime")
+            RuntimeUtils.install(this, FCLPath.LWJGL_DIR, "app_runtime/lwjgl")
+            RuntimeUtils.install(this, FCLPath.CACIOCAVALLO_8_DIR, "app_runtime/caciocavallo")
+            RuntimeUtils.install(this, FCLPath.CACIOCAVALLO_17_DIR, "app_runtime/caciocavallo17")
+            RuntimeUtils.installJna(this, FCLPath.JNA_PATH, "app_runtime/jna")
+        }) { status.text = "已安装 $runtime 及随附组件，可选择游戏 JAR 后启动。" }
     }
 
     private fun startJava() {
         if (busy) return
-        save()
+        if (!save()) return
         val rawSpec = JavaLaunchSpec(fields.getValue("jar").text.toString(), JavaLaunchSpec.lines(fields.getValue("classpath").text.toString()),
             fields.getValue("main").text.toString(), JavaLaunchSpec.lines(fields.getValue("jvm").text.toString()),
             JavaLaunchSpec.lines(fields.getValue("args").text.toString()), fields.getValue("work").text.toString(),
@@ -502,21 +722,23 @@ class GenericLauncherActivity : FCLActivity() {
         val lwjglVersion = lwjgl.selectedItem.toString()
         val usePvzce = pvzce.isChecked
         lifecycleScope.launch {
-            // Native bridge class initialization is kept on the main thread (Choreographer).
-            val validated = withContext(Dispatchers.IO) {
-                runCatching {
-                    if (usePvzce) PvzceProfile.configure(rawSpec, lwjglVersion)
-                    else rawSpec.also { it.validate() }
+            try {
+                // Native bridge class initialization is kept on the main thread (Choreographer).
+                val validated = withContext(Dispatchers.IO) {
+                    runCatching {
+                        if (usePvzce) PvzceProfile.configure(rawSpec, lwjglVersion)
+                        else rawSpec.also { it.validate() }
+                    }
                 }
+                if (validated.isFailure) showError(validated.exceptionOrNull()!!)
+                else runCatching {
+                    val bridge = GenericJavaLauncher.prepare(this@GenericLauncherActivity, validated.getOrThrow(), rendererId, lwjglVersion)
+                    GenericJvmActivity.pendingBridge = bridge
+                    startActivity(Intent(this@GenericLauncherActivity, GenericJvmActivity::class.java))
+                }.onFailure { showError(it) }
+            } finally {
+                busy = false
             }
-            if (validated.isFailure) showError(validated.exceptionOrNull()!!)
-            else runCatching {
-                val bridge = GenericJavaLauncher.prepare(this@GenericLauncherActivity, validated.getOrThrow(), rendererId, lwjglVersion)
-                GenericJvmActivity.pendingBridge = bridge
-                startActivity(Intent(this@GenericLauncherActivity, GenericJvmActivity::class.java))
-            }.onFailure { showError(it) }
-            busy = false
-            launchButton.isEnabled = true
         }
     }
 }

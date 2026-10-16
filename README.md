@@ -2,9 +2,14 @@
 
 为 [PVZCE（pvzce/pvzce）](https://github.com/pvzce/pvzce) 提供 Android Java / LWJGL 运行入口，基于 [FoldCraftLauncher](https://github.com/FCL-Team/FoldCraftLauncher) 改造。
 
-目前提供开发测试包：已实现 PVZCE 启动预设、扩展内容导入和基础输入适配，**尚未完成真实 Android 设备上的游戏兼容性验证**。启动器不附带游戏 JAR 或原版 PvZ 素材。
+目前提供开发测试包：已实现 PVZCE 启动预设、独立实例、可视化内容管理和基础输入适配，**尚未完成真实 Android 设备上的游戏兼容性验证**。启动器不附带游戏 JAR 或原版 PvZ 素材。
 
 ## 下载开发 APK
+
+**2026-10-16 独立实例与内容管理候选包：[下载 arm64 APK 与验证记录](https://github.com/pvzce/PVZCELauncher/actions/runs/38861551125/artifacts/12029317973) · [草稿 PR #3](https://github.com/pvzce/PVZCELauncher/pull/3)**。
+构建代码 `9d3f9f5dc44bcbc65b0a0f4f916eaf7384334ede` 的相关测试、Checkstyle、两个 APK 和最终身份/签名检查已通过；后续 UI 冒烟步骤仍在运行，未宣称 UI 或真机游戏加载通过。功能与验证范围见 [独立实例记录](docs/PVZCE_INSTANCES.md)。此包不包含尚未合并的独立音频修复 PR #2。
+
+以下为此前界面包的历史记录，不包含本轮实例功能。
 
 **2026-10-15 FCL 界面候选包：[下载 arm64 APK 与校验记录（ZIP）](https://github.com/pvzce/PVZCELauncher/actions/runs/38685683742/artifacts/11949812303) · [构建与 UI 检查记录](https://github.com/pvzce/PVZCELauncher/actions/runs/38685683742)**。源码为 [`9a461a099302558a20d492662ae03e708ff044bc`](https://github.com/pvzce/PVZCELauncher/commit/9a461a099302558a20d492662ae03e708ff044bc)；两个 APK、相关检查及最终 Manifest/签名验证已通过；**软件模拟器安装失败，四项 UI 测试未开始、没有截图，整轮工作流为 failure，开发分支尚未合并 main**。诊断与后续验证条件见下方交接文档。下载包于北京时间 **2026-10-29 13:20:52** 到期。
 
@@ -21,19 +26,19 @@
 
 ## 启动 PVZCE
 
-1. 首次打开默认使用 **PVZCE 预设**：Android JRE 25、patched LWJGL 3.4.1、游戏自带 KnotClient 与私有游戏目录。已有配置不会被覆盖；主页的 **恢复 PVZCE 启动预设** 可在确认后重设启动字段，保留已选 JAR。
+1. 主页选择当前实例，可新建、复制配置、重命名、归档或恢复；旧配置原地登记为默认实例，旧数据保留。首次打开默认使用 **PVZCE 预设**：Android JRE 25、patched LWJGL 3.4.1、游戏自带 KnotClient 与私有游戏目录。已有配置不会被覆盖；主页的 **恢复 PVZCE 启动预设** 可在确认后重设启动字段，保留已选 JAR。
 2. 从真实 PVZCE 工程执行 `./gradlew :pvzce-game:shadowJar` 获得游戏 fat JAR，再点击右侧 **选择 / 导入游戏 JAR**。没有内置或虚构的游戏下载地址，也不需要 Minecraft 账号或版本 JSON。
 3. 右侧 **运行时与渲染** 打开设置页，点击 **安装 / 修复所选运行组件**，从 APK 安装 JRE、LWJGL 与 AWT/JNA 支持；PVZCE 需要 OpenGL 3.2 core，VirGL 是可调整的初始选择，设备兼容性尚未验证。
-4. 左侧 **内容** 页提供模组 JAR、资源包目录、数据包目录导入。包目录应直接包含 `assets/` 或 `data/`；当前不把 ZIP 当成已启用的包。**浏览游戏数据** 使用原 FCL 文件浏览器打开实际工作目录；其中 **游戏目录** 快捷键返回该配置路径，隐藏无关的存储与重复确认入口。代码模组需要重启，包在游戏内启用或重载。
+4. 左侧 **内容** 页分为模组、资源包、数据包、存档。沿用 FCL 的搜索、多选、勾选启用、长按重命名和详情流程；支持移入可恢复回收站、导出完整备份 ZIP、导入 JAR / 目录 / 备份。包根须含 `assets/` 或 `data/`，存档须选择世界目录；ZIP 先解包校验，不作为 ZIP 文件直接交给游戏加载。包开关写入 PVZCE 自己的配置，两类同名包共用开关并会提示。修改后重启游戏生效。
 5. 点击右侧 **启动游戏**，执行已有校验并进入独立 Android JVM。错误会显示实际原因，未提供有效游戏 JAR 时不会显示启动成功。
-6. 左侧 **高级** 保留 JAR/classpath、主类、逐行 JVM/游戏参数、工作目录配置；取消 **使用 PVZCE 启动预设校验** 可运行自行提供的通用 Java 程序。**保存配置** 和切后台会持久化配置，页面与控件状态支持重建恢复。
+6. 左侧 **高级** 保留 JAR/classpath、主类、逐行 JVM/游戏参数、工作目录配置；取消 **使用 PVZCE 启动预设校验** 可运行自行提供的通用 Java 程序。**保存配置** 和切后台会持久化当前实例配置；目录不得与另一实例相同或嵌套，修改路径不搬移数据。**浏览游戏数据** 复用原 FCL 文件浏览器。页面、内容分类和搜索支持重建恢复，后台操作锁跨重建保留。
 7. **日志** 页读取实际 `latest_jar_executor.log` 末尾 64 KiB，可刷新或通过系统文件选择器导出完整日志；不会上传到网络。
 
 界面复用 FCL 的侧边菜单、启动卡片布局、动态标题、按钮、输入框、勾选框、文件浏览器与 ThemeEngine；没有重新开启旧 Main/Splash/账号初始化链路。默认主题为植物绿：浅色 `#2E7D32`，暗色 `#A5D6A7`；设置中可跟随系统、选择浅/深色或恢复植物绿，已有自定义颜色会保留。账号、Minecraft 下载/更新、整合包平台、无实现的大厅/控制器等按钮不出现在此界面。
 
 游戏内 **Keys** 面板、工具 1–5、节奏 S/D/F/J/K/L、聊天 T 与 /、中文 BMP 文字提交、鼠标/滚轮行为保持原实现。高级运行路径和 Java 25、native-access、唯一 `--gameDir`、Android 图形/音频/SDL/Cacio 后端保持不变。
 
-本轮 UI 实施与验证记录见 [PVZCE_UI_HANDOFF.md](docs/PVZCE_UI_HANDOFF.md)。
+独立实例、内容管理及验证边界见 [PVZCE_INSTANCES.md](docs/PVZCE_INSTANCES.md)；此前 UI 历史记录见 [PVZCE_UI_HANDOFF.md](docs/PVZCE_UI_HANDOFF.md)。本功能分支不包含尚未合并的独立音频修复 PR #2；两者的只读合并检查无冲突，联合运行仍需真机复核。
 
 ## 游戏操作与功能边界
 
@@ -51,7 +56,7 @@
 bash tools/check_pvzce_profile.sh
 bash tools/check_generic_java.sh
 python3 tools/audit_generic_launcher.py
-bash gradlew :FCL:testFordebugUnitTest --tests com.tungsten.fcl.generic.JavaLaunchSpecTest \
+bash gradlew :FCL:testFordebugUnitTest --tests 'com.tungsten.fcl.generic.*' \
   :FCL:checkstyle :FCL:compileFordebugAndroidTestKotlin \
   :FCL:assembleDebug :FCL:assembleFordebug \
   -Darch=arm64 --no-daemon --console=plain --max-workers=2
@@ -63,6 +68,7 @@ GitHub 工作流执行上述相关检查，构建两种 APK，并检查最终 AP
 
 ## 架构、交接与许可
 
+- [独立实例、可视化内容管理、备份恢复](docs/PVZCE_INSTANCES.md)
 - [PVZCE 功能映射、配置、验证与剩余问题](docs/PVZCE_GAME_SUPPORT.md)
 - [通用入口、包名共存与 JNI 架构](docs/PVZCE_GENERIC_LAUNCHER.md)
 - [任务一历史交接](docs/PVZCE_TASK1_HANDOFF.md) · [任务二历史验证报告](docs/PVZCE_TASK2_VERIFICATION.md)

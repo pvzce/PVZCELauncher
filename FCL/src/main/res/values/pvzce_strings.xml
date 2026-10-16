@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="pvzce_instance">当前游戏实例</string>
+    <string name="pvzce_instance_create">新建实例</string>
+    <string name="pvzce_instance_copy">复制配置到空实例</string>
+    <string name="pvzce_instance_rename">重命名实例</string>
+    <string name="pvzce_instance_archive">归档当前实例（保留数据）</string>
+    <string name="pvzce_instance_restore">恢复已归档实例</string>
     <string name="pvzce_home">主页</string>
     <string name="pvzce_content">内容</string>
     <string name="pvzce_settings">设置</string>
@@ -11,7 +17,7 @@
     <string name="pvzce_intro">导入你拥有的 PVZCE 游戏 JAR，安装 JRE 25 后启动。无需 Minecraft 账号。</string>
     <string name="pvzce_jar">游戏 JAR 路径</string>
     <string name="pvzce_preset">恢复 PVZCE 启动预设</string>
-    <string name="pvzce_preset_message">重设入口、JVM 参数、工作目录与运行组件，保留已选 JAR；不会移动或删除游戏文件。</string>
+    <string name="pvzce_preset_message">重设当前实例的入口、JVM 参数与运行组件，保留已选 JAR 和独立游戏目录；不会移动或删除游戏文件。</string>
     <string name="pvzce_import_mods">导入模组 JAR</string>
     <string name="pvzce_import_resources">导入资源包目录</string>
     <string name="pvzce_import_data">导入数据包目录</string>
@@ -33,13 +39,13 @@
     <string name="pvzce_main_class">主类（通用模式留空读取 JAR Manifest）</string>
     <string name="pvzce_jvm">JVM 参数（每行一个）</string>
     <string name="pvzce_args">游戏参数（每行一个）</string>
-    <string name="pvzce_work">工作目录（绝对路径）</string>
+    <string name="pvzce_work">实例游戏目录（绝对路径；修改路径不搬移数据）</string>
     <string name="pvzce_save">保存配置</string>
     <string name="pvzce_saved">配置已保存</string>
     <string name="pvzce_refresh_logs">刷新日志</string>
     <string name="pvzce_export_logs">导出启动日志</string>
     <string name="pvzce_no_logs">尚无启动日志。启动后可在此查看最新 Java 启动器日志。</string>
-    <string name="pvzce_log_hint">显示 latest_jar_executor.log 的末尾 64 KiB。导出保存完整文件，不上传网络。</string>
+    <string name="pvzce_log_hint">显示最近一次启动的全局日志 latest_jar_executor.log 末尾 64 KiB。导出保存完整文件，不上传网络。</string>
     <string name="pvzce_ready">导入游戏 JAR，安装运行组件，然后启动。</string>
     <string name="pvzce_error">操作失败</string>
     <string name="pvzce_ok">确定</string>

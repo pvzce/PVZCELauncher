@@ -34,6 +34,9 @@ class PvzceLauncherUiTest {
     private val context = ApplicationProvider.getApplicationContext<Context>()
 
     @Before fun resetLaunchPreferences() {
+        check(context.packageName.endsWith(".debug")) { "Instrumentation must use the isolated fordebug package" }
+        File(context.filesDir, "launcher_instances").deleteRecursively()
+        context.getSharedPreferences("pvzce_pending_transfer", Context.MODE_PRIVATE).edit().clear().commit()
         context.getSharedPreferences("generic_launch", Context.MODE_PRIVATE).edit().clear().commit()
         context.getSharedPreferences("launcher", Context.MODE_PRIVATE).edit().putInt("themeMode", 1).commit()
     }
@@ -116,7 +119,7 @@ class PvzceLauncherUiTest {
                 assertEquals("中文参数\n--example", activity.findViewById<EditText>(R.id.pvzce_args).text.toString())
                 assertEquals("/example/user.jar", activity.findViewById<EditText>(R.id.pvzce_classpath).text.toString())
                 assertEquals("jre17", activity.findViewById<Spinner>(R.id.pvzce_runtime).selectedItem)
-                assertEquals("中文参数\n--example", activity.getSharedPreferences("generic_launch", Context.MODE_PRIVATE).getString("args", null))
+                assertEquals("中文参数\n--example", GameInstanceStore(activity.filesDir).selected().config["args"])
             }
         }
     }
@@ -132,15 +135,27 @@ class PvzceLauncherUiTest {
         ActivityScenario.launch(GenericLauncherActivity::class.java).use { scenario ->
             instrumentation.addMonitor(monitor)
             try {
-                listOf(R.id.pvzce_jar_card, R.id.pvzce_import_mods, R.id.pvzce_import_resources,
-                    R.id.pvzce_import_data, R.id.pvzce_browse).forEach { id ->
+                scenario.onActivity { it.findViewById<View>(R.id.pvzce_jar_card).performClick() }
+                idle()
+                scenario.onActivity { it.findViewById<View>(R.id.pvzce_nav_content).performClick() }
+                for (index in 0..2) {
                     scenario.onActivity { activity ->
-                        if (id != R.id.pvzce_jar_card) activity.findViewById<View>(R.id.pvzce_nav_content).performClick()
-                        assertTrue(activity.findViewById<View>(id).isShown)
-                        activity.findViewById<View>(id).performClick()
+                        val tabs = activity.findViewById<com.google.android.material.tabs.TabLayout>(R.id.pvzce_content_tabs)
+                        tabs.selectTab(tabs.getTabAt(index))
+                    }
+                    waitReady(scenario)
+                    scenario.onActivity { activity ->
+                        val content = activity.findViewById<View>(R.id.pvzce_page_content)
+                        assertTrue(content.findViewById<View>(R.id.add).isShown)
+                        content.findViewById<View>(R.id.add).performClick()
                     }
                     idle()
                 }
+                scenario.onActivity { activity ->
+                    activity.findViewById<View>(R.id.pvzce_nav_advanced).performClick()
+                    activity.findViewById<View>(R.id.pvzce_browse).performClick()
+                }
+                idle()
                 assertEquals(5, intents.size)
                 assertEquals(Intent.ACTION_OPEN_DOCUMENT, intents[0].action)
                 assertEquals(Intent.ACTION_OPEN_DOCUMENT, intents[1].action)
@@ -171,6 +186,96 @@ class PvzceLauncherUiTest {
                 screenshot("game-data-browser")
                 instrumentation.runOnMainSync { browser.finish() }
             } finally { instrumentation.removeMonitor(browserMonitor) }
+        }
+    }
+
+    private fun waitReady(scenario: ActivityScenario<GenericLauncherActivity>) {
+        var ready = false
+        val deadline = SystemClock.elapsedRealtime() + 15000
+        while (!ready && SystemClock.elapsedRealtime() < deadline) {
+            SystemClock.sleep(50)
+            scenario.onActivity { ready = it.findViewById<View>(R.id.pvzce_start).isEnabled }
+        }
+        assertTrue("Instance content operation must finish", ready)
+        idle()
+        SystemClock.sleep(100)
+    }
+
+    @Test fun independentInstancesAndVisualModManagementSurviveRecreation() {
+        val firstRoot = File(context.cacheDir, "instance-ui-first").apply { mkdirs() }
+        val store = GameInstanceStore(context.filesDir)
+        val first = store.initialize(mapOf("work" to firstRoot.absolutePath, "jar" to "first.jar",
+            "pvzce" to "true", "runtime" to "jre25", "lwjgl" to "3.4.1", "main" to PvzceProfile.MAIN_CLASS,
+            "jvm" to "-Xmx512m", "args" to "", "classpath" to ""))
+        val mods = File(firstRoot, "mods").apply { mkdirs() }
+        java.util.jar.JarOutputStream(File(mods, "fixture.jar").outputStream()).use {
+            it.putNextEntry(java.util.jar.JarEntry("fabric.mod.json"))
+            it.write("{\"schemaVersion\":1,\"id\":\"fixture\",\"name\":\"界面测试模组\",\"version\":\"1.0\"}".toByteArray())
+            it.closeEntry()
+        }
+        val second = store.create("第二实例", first.config)
+        store.update(second.id, second.config.toMutableMap().apply { put("jar", "second.jar") })
+        store.select(first.id)
+        try {
+            ActivityScenario.launch(GenericLauncherActivity::class.java).use { scenario ->
+                scenario.onActivity { it.findViewById<Spinner>(R.id.pvzce_instance).setSelection(1) }
+                idle()
+                scenario.onActivity {
+                    assertEquals("second.jar", it.findViewById<EditText>(R.id.pvzce_jar).text.toString())
+                    assertEquals(second.directory().path, it.findViewById<EditText>(R.id.pvzce_work).text.toString())
+                    it.findViewById<View>(R.id.pvzce_nav_content).performClick()
+                }
+                waitReady(scenario)
+                scenario.onActivity {
+                    assertEquals(0, it.findViewById<androidx.recyclerview.widget.RecyclerView>(R.id.list).adapter!!.itemCount)
+                    it.findViewById<View>(R.id.pvzce_nav_home).performClick()
+                    it.findViewById<Spinner>(R.id.pvzce_instance).setSelection(0)
+                }
+                idle()
+                scenario.onActivity { it.findViewById<View>(R.id.pvzce_nav_content).performClick() }
+                waitReady(scenario)
+                scenario.recreate()
+                waitReady(scenario)
+                scenario.onActivity {
+                    val list = it.findViewById<androidx.recyclerview.widget.RecyclerView>(R.id.list)
+                    assertEquals(1, list.adapter!!.itemCount)
+                    assertEquals(first.id, GameInstanceStore(it.filesDir).selected().id)
+                    val row = requireNotNull(list.findViewHolderForAdapterPosition(0))
+                    row.itemView.findViewById<CheckBox>(R.id.check).isChecked = false
+                }
+                waitReady(scenario)
+                assertTrue(File(mods, "fixture.jar.disabled").isFile)
+                assertFalse(File(second.directory(), "mods/fixture.jar.disabled").exists())
+                screenshot("instance-mod-manager")
+                scenario.onActivity { it.findViewById<View>(R.id.pvzce_nav_home).performClick() }
+                screenshot("instance-selection")
+            }
+        } finally {
+            firstRoot.deleteRecursively()
+            second.directory().deleteRecursively()
+        }
+    }
+
+    @Test fun operationLockSurvivesActivityRecreation() {
+        ActivityScenario.launch(GenericLauncherActivity::class.java).use { scenario ->
+            val token = Any()
+            assertTrue(GameOperationGate.begin(token))
+            try {
+                idle()
+                val store = GameInstanceStore(context.filesDir)
+                val instance = store.selected()
+                store.update(instance.id, instance.config.toMutableMap().apply { put("jar", "io-completed.jar") })
+                scenario.recreate()
+                scenario.onActivity {
+                    assertFalse(it.findViewById<View>(R.id.pvzce_start).isEnabled)
+                    assertFalse(it.findViewById<View>(R.id.pvzce_instance).isEnabled)
+                }
+            } finally { GameOperationGate.end(token) }
+            waitReady(scenario)
+            scenario.onActivity {
+                assertTrue(it.findViewById<View>(R.id.pvzce_instance).isEnabled)
+                assertEquals("io-completed.jar", it.findViewById<EditText>(R.id.pvzce_jar).text.toString())
+            }
         }
     }
 

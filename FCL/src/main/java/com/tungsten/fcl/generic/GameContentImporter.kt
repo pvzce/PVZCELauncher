@@ -28,7 +28,8 @@ object GameContentImporter {
         }
     }
 
-    fun tree(resolver: ContentResolver, tree: Uri, destination: File): File {
+    fun tree(resolver: ContentResolver, tree: Uri, destination: File,
+             kind: PvzceContentStore.Kind = PvzceContentStore.Kind.RESOURCES): File {
         check(destination.isDirectory || destination.mkdirs()) { "Cannot create pack directory" }
         val rootId = DocumentsContract.getTreeDocumentId(tree)
         val rootUri = DocumentsContract.buildDocumentUriUsingTree(tree, rootId)
@@ -44,9 +45,7 @@ object GameContentImporter {
         try {
             val budget = intArrayOf(0)
             copyTree(resolver, tree, rootId, staging, 0, budget)
-            require(File(staging, "assets").isDirectory || File(staging, "data").isDirectory) {
-                "Select the pack root containing assets/ or data/, not a ZIP or its parent directory"
-            }
+            PvzceContentStore.validateImported(kind, staging)
             check(!target.exists() && staging.renameTo(target)) { "Cannot save pack directory" }
             return target
         } finally {
