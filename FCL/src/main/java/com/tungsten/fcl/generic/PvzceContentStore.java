@@ -285,8 +285,10 @@ public final class PvzceContentStore {
                     if (origin != null) provenance.add(name, origin);
                 }
                 manifest.add("origins", provenance);
+                byte[] manifestBytes = manifest.toString().getBytes(StandardCharsets.UTF_8);
+                if (manifestBytes.length > 1024 * 1024) throw new IOException("备份说明超过 1 MiB，请分批导出");
                 zip.putNextEntry(new ZipEntry(BACKUP_MANIFEST));
-                zip.write(manifest.toString().getBytes(StandardCharsets.UTF_8));
+                zip.write(manifestBytes);
                 zip.closeEntry();
                 long[] budget = {0, 0};
                 for (String name : names) {

@@ -68,6 +68,7 @@
   仍由现有启动预设和游戏加载器检查，不假装已执行所有 Fabric 规则。
 - 来源保存于每个实例根目录 `.pvzce-workshop.json`，记录 API、作品/版本/文件 ID、包摘要、
   安装指纹、版本号、游戏版本和平台依赖快照。模组指纹为文件摘要，数据包为稳定目录树摘要。
+  只保存反向依赖检查所需快照，不复制完整更新日志。来源记录上限 4 MiB；备份说明超过 1 MiB 时提示分批导出，避免生成自己无法导入的备份。
   这是本地可编辑来源信息，不是平台签名或内容可信度证明。
 - 只更新同来源、同作品的一个已知副本。发现本地修改、多副本、其他同名文件或共享包名冲突时拒绝覆盖，
   提示先备份整理。旧版本移到现有 `.pvzce-launcher-trash/`，保留启用/禁用状态；普通 IO 失败尝试回滚。
@@ -101,6 +102,27 @@
 依赖与反向依赖、游戏版本常量读取、目标实例切换和配置变更。
 Android 测试源码增加账号/搜索字段重建恢复与 AndroidKeyStore 会话隔离检查。
 
-Android 构建和设备运行的最终结果在本节完成验证后记录。
+已使用完整 JDK 17、SDK 35、NDK 27.0.12077973 完成：
+
+```sh
+bash tools/check_pvzce_profile.sh
+bash tools/check_generic_java.sh
+bash tools/check_audio_compatibility.sh
+python3 tools/audit_generic_launcher.py
+bash gradlew :FCL:testFordebugUnitTest --tests 'com.tungsten.fcl.generic.*' \
+  :FCL:checkstyle :FCL:compileFordebugAndroidTestKotlin \
+  :FCL:assembleDebug :FCL:assembleFordebug \
+  -Darch=arm64 --no-daemon --console=plain --max-workers=2
+```
+
+以上相关单测、预检、Checkstyle、instrumentation 源码编译及两个 arm64 APK 构建均通过。
+APK 包名分别为 `com.pvzce.pvzl` 与 `com.pvzce.pvzl.debug`，最终 APK 的解码 Manifest、
+provider/旧入口隔离、专用登录进程及非导出 Activity、ABI 与 Android Debug 开发签名另行核验。
+完整单测集未在本次扩大运行，不将相关回归冒充全库结果。
+
+草稿 [PR #4](https://github.com/pvzce/PVZCELauncher/pull/4) 保留给第二阶段继续开发；未合并或创建正式 Release。
+[分支 CI / APK 产物入口](https://github.com/pvzce/PVZCELauncher/actions/workflows/pvzce-build.yml?query=branch%3Afeat%2Fpvzce-workshop-stage1-20261019)
+随最终代码推送触发；CI / UI 的实时状态以工作流为准，不能把本地构建通过写成设备界面通过。
+本环境 `adb devices` 没有连接设备，没有执行设备 instrumentation 或获取界面截图。
 没有提供实际部署的 API 地址、Casdoor 测试账号及真实游戏/作品 JAR，因此不宣称真实 Casdoor 登录、
 线上下载、Android 游戏兼容性或完整端到端流程已验证。

@@ -55,7 +55,9 @@ final class WorkshopOrigins {
     }
 
     void save() throws IOException {
-        InstanceFiles.write(file, entries.toString().getBytes(StandardCharsets.UTF_8));
+        byte[] bytes = entries.toString().getBytes(StandardCharsets.UTF_8);
+        if (bytes.length > 4 * 1024 * 1024) throw new IOException("工坊来源记录超过 4 MiB，请先整理实例内容");
+        InstanceFiles.write(file, bytes);
     }
 
     void moved(PvzceContentStore.Kind kind, String from, String to) throws IOException {

@@ -203,7 +203,12 @@ public final class WorkshopInstaller {
                 origin.addProperty("fingerprint", fingerprint);
                 origin.addProperty("number", version.number);
                 origin.addProperty("game_version", gameVersion);
-                origin.add("manifest", WorkshopApi.JSON.toJsonTree(version));
+                JsonObject manifest = new JsonObject();
+                manifest.addProperty("id", version.id);
+                manifest.addProperty("project_id", version.project_id);
+                manifest.add("game_versions", WorkshopApi.JSON.toJsonTree(version.game_versions));
+                manifest.add("dependencies", WorkshopApi.JSON.toJsonTree(version.dependencies));
+                origin.add("manifest", manifest);
                 // No cancellation once committing: the complete payload and metadata move together
                 // or roll back.
                 transfer.check();

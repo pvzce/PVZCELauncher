@@ -111,7 +111,10 @@ public class WorkshopInstallerTest {
 
     @Test public void renamedOriginsSurviveBackupTrashAndRestore() throws Exception {
         File file = mod("1.0.0");
-        install(detail("mod", 1, 11, "1.0.0", file), file);
+        WorkshopApi.Detail detail = detail("mod", 1, 11, "1.0.0", file);
+        detail.versions.get(0).changelog = "Long changelog".repeat(4000);
+        install(detail, file);
+        assertTrue(new File(game, ".pvzce-workshop.json").length() < 4096);
         content.rename(MODS, content.list(MODS).get(0).filename, "renamed.jar");
         ByteArrayOutputStream backup = new ByteArrayOutputStream();
         content.exportZip(MODS, List.of("renamed.jar"), backup);
