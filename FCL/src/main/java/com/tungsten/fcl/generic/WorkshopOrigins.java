@@ -17,8 +17,11 @@ final class WorkshopOrigins {
     final JsonObject entries;
 
     WorkshopOrigins(File game) throws IOException {
+        File raw = new File(game, ".pvzce-workshop.json").getAbsoluteFile();
         file = GameContentPaths.child(game, ".pvzce-workshop.json");
-        if (Files.isSymbolicLink(file.toPath())) throw new IOException("工坊记录不能是符号链接");
+        if (Files.isSymbolicLink(raw.toPath()) || !file.equals(raw)) {
+            throw new IOException("工坊记录不能是符号链接");
+        }
         if (file.exists()) {
             try (InputStream input = Files.newInputStream(file.toPath())) {
                 entries =

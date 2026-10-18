@@ -135,6 +135,14 @@ public class WorkshopInstallerTest {
         assertTrue(content.trashIds().isEmpty());
     }
 
+    @Test public void linkedOriginsNeverRewriteAnotherLocalFile() throws Exception {
+        Path other = game.toPath().resolve("keep.json");
+        Files.write(other, "{}".getBytes(StandardCharsets.UTF_8));
+        Files.createSymbolicLink(game.toPath().resolve(".pvzce-workshop.json"), other);
+        rejected(() -> new WorkshopOrigins(game));
+        assertEquals("{}", new String(Files.readAllBytes(other), StandardCharsets.UTF_8));
+    }
+
     @Test public void dataZipIsInstalledAsDirectoryAndChecksPathTraversal() throws Exception {
         File file = data(Map.of("pack.mcmeta", "{\"pack\":{\"pack_format\":1,\"description\":\"demo\"}}", "data/demo/levels/test.json", "{}"));
         install(detail("datapack", 2, 21, "1.0.0", file), file);
