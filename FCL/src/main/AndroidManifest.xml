@@ -63,6 +63,7 @@
             </intent-filter>
         </activity>
 
+        <activity android:name=".generic.WorkshopCreatorActivity" android:exported="false" android:screenOrientation="sensorLandscape" />
         <activity android:name=".generic.PvzceWorkshopActivity" android:exported="false" android:screenOrientation="sensorLandscape" />
         <activity android:name=".generic.WorkshopLoginActivity" android:exported="false" android:process=":pvzce_login" android:screenOrientation="sensorLandscape" />
 

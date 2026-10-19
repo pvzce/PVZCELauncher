@@ -32,6 +32,9 @@ tasks.register<Checkstyle>("checkstyle") {
 }
 
 android {
+    // Desktop HttpURLConnection blocks Origin by default; Android's HTTP stack sends it.
+    // Enable it for loopback contract tests only, so Cookie/CSRF/Origin headers are verified.
+    testOptions.unitTests.all { it.systemProperty("sun.net.http.allowRestrictedHeaders", "true") }
     namespace = "com.tungsten.fcl"
     compileSdk = libs.versions.compileSdk.get().toInt()
 

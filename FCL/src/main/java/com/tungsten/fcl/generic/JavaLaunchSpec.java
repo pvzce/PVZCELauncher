@@ -45,7 +45,16 @@ public final class JavaLaunchSpec implements Serializable {
         return result;
     }
 
+    public static void rejectLoginArguments(List<String> args) throws IOException {
+        for (String arg : args) {
+            if (arg.equals("--pvzceLoginCode") || arg.startsWith("--pvzceLoginCode=")
+                    || arg.equals("--pvzceApiUrl") || arg.startsWith("--pvzceApiUrl="))
+                throw new IOException("游戏登录参数由启动器临时注入，请勿保存在实例参数中");
+        }
+    }
+
     public void validate() throws IOException {
+        rejectLoginArguments(gameArgs);
         File work = absolute(workingDir, "Working directory");
         if (!work.isDirectory() || !work.canRead() || !work.canWrite()) {
             throw new IOException("Working directory must exist and be readable/writable: " + work);

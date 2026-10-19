@@ -96,7 +96,8 @@ public final class GameInstanceStore {
             config.put("work", directory.getPath());
             // JAR and runtime libraries can be shared; all mutable game data starts empty.
             Files.createDirectories(directory.toPath());
-            for (String child : new String[] {"mods", "resourcepacks", "datapacks", "saves", "config"}) {
+            for (String child :
+                    new String[] {"mods", "resourcepacks", "datapacks", "saves", "config"}) {
                 Files.createDirectories(new File(directory, child).toPath());
             }
             put(state, id, validName(name), false, config);
@@ -110,7 +111,8 @@ public final class GameInstanceStore {
     public void select(String id) throws IOException {
         synchronized (LOCK) {
             Properties state = load();
-            if (read(state, id).archived) throw new IOException("Restore the instance before selecting it");
+            if (read(state, id).archived)
+                throw new IOException("Restore the instance before selecting it");
             state.setProperty("selected", id);
             persist(state);
         }
@@ -163,7 +165,8 @@ public final class GameInstanceStore {
         File metadata = registry.getParentFile();
         if (overlap(directory, metadata)) throw new IOException("游戏目录不能包含启动器配置目录");
         for (String other : ids(state)) {
-            if (!other.equals(id) && overlap(directory, read(state, other).directory().getCanonicalFile())) {
+            if (!other.equals(id)
+                    && overlap(directory, read(state, other).directory().getCanonicalFile())) {
                 throw new IOException("实例目录不能相同或互相包含（包括已归档实例）");
             }
         }
@@ -175,7 +178,10 @@ public final class GameInstanceStore {
     }
 
     private static String validName(String name) throws IOException {
-        if (name == null || name.trim().isEmpty() || name.length() > 100 || name.chars().anyMatch(Character::isISOControl)) {
+        if (name == null
+                || name.trim().isEmpty()
+                || name.length() > 100
+                || name.chars().anyMatch(Character::isISOControl)) {
             throw new IOException("实例名称须为 1–100 个字符");
         }
         return name.trim();
@@ -187,7 +193,8 @@ public final class GameInstanceStore {
         try (InputStream input = Files.newInputStream(registry.toPath())) {
             state.load(input);
         }
-        if (!"1".equals(state.getProperty("format"))) throw new IOException("Unsupported instance registry format");
+        if (!"1".equals(state.getProperty("format")))
+            throw new IOException("Unsupported instance registry format");
         return state;
     }
 
@@ -198,17 +205,26 @@ public final class GameInstanceStore {
     }
 
     private static Instance read(Properties state, String id) throws IOException {
-        if (!ids(state).contains(id) || !state.containsKey(id + ".name")) throw new IOException("Unknown instance: " + id);
+        if (!ids(state).contains(id) || !state.containsKey(id + ".name"))
+            throw new IOException("Unknown instance: " + id);
         Map<String, String> config = new LinkedHashMap<>();
         String prefix = id + ".config.";
         for (String key : state.stringPropertyNames()) {
-            if (key.startsWith(prefix)) config.put(key.substring(prefix.length()), state.getProperty(key));
+            if (key.startsWith(prefix))
+                config.put(key.substring(prefix.length()), state.getProperty(key));
         }
         if (!config.containsKey("work")) throw new IOException("Instance has no directory");
-        return new Instance(id, state.getProperty(id + ".name"), Boolean.parseBoolean(state.getProperty(id + ".archived")), config);
+        return new Instance(
+                id,
+                state.getProperty(id + ".name"),
+                Boolean.parseBoolean(state.getProperty(id + ".archived")),
+                config);
     }
 
-    private static void put(Properties state, String id, String name, boolean archived, Map<String, String> config) {
+    private static void put(
+            Properties state, String id, String name, boolean archived, Map<String, String> config)
+            throws IOException {
+        JavaLaunchSpec.rejectLoginArguments(JavaLaunchSpec.lines(config.getOrDefault("args", "")));
         String prefix = id + ".config.";
         for (String key : new ArrayList<>(state.stringPropertyNames())) {
             if (key.startsWith(prefix)) state.remove(key);
@@ -226,8 +242,11 @@ public final class GameInstanceStore {
     }
 
     private void checkRegistryPath() throws IOException {
-        if (!registry.getParentFile().getCanonicalFile().equals(registry.getParentFile().getAbsoluteFile())
-                || Files.isSymbolicLink(registry.toPath()) || Files.isSymbolicLink(games.toPath())) {
+        if (!registry.getParentFile()
+                        .getCanonicalFile()
+                        .equals(registry.getParentFile().getAbsoluteFile())
+                || Files.isSymbolicLink(registry.toPath())
+                || Files.isSymbolicLink(games.toPath())) {
             throw new IOException("实例配置或默认目录不能通过符号链接重定向");
         }
     }
