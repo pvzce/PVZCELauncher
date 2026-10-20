@@ -71,6 +71,7 @@ class PvzceWorkshopActivity : FCLActivity() {
         val navigation = LinearLayout(this)
         button(navigation, "返回启动器", false) { finish() }
         button(navigation, "在线工坊", false) { showAccount = false; showPage() }
+        button(navigation, "我的作品", false) { if (!model.state.value.busy) startActivity(Intent(this, WorkshopCreatorActivity::class.java)) }
         button(navigation, "账号与 API", false) { showAccount = true; showPage() }
         root.addView(navigation)
         message = text(root, "")
@@ -148,6 +149,15 @@ class PvzceWorkshopActivity : FCLActivity() {
     private fun buildAccount(body: LinearLayout) {
         api = field(body, "API 服务根地址（HTTPS；例如你部署的 pvzce-site 地址）", R.id.pvzce_api_address, model.state.value.api)
         button(body, "保存 API 地址") { model.setApi(api.text.toString()) }
+        val loginPreference = com.tungsten.fcllibrary.component.view.FCLCheckBox(this).apply {
+            setAutoTint(true)
+            setTextColor(ThemeEngine.getTheme().autoTint)
+            text = "启动时尝试账号交接（须服务器和游戏支持，默认关闭）"
+            isChecked = getSharedPreferences("pvzce_workshop", 0).getBoolean("launch_login", false)
+            setOnCheckedChangeListener { _, enabled -> getSharedPreferences("pvzce_workshop", 0).edit().putBoolean("launch_login", enabled).apply() }
+        }
+        body.addView(loginPreference)
+        text(body, "当前官方后端与游戏尚未提供登录交接能力；启用后也会检查能力，不支持时明确提示并离线启动。网站登录不等于游戏登录。")
         account = text(body, "")
         account.id = R.id.pvzce_account_summary
         text(body, "登录后可编辑本站资料。Casdoor 管理密码和身份；公开作品可匿名浏览下载。")

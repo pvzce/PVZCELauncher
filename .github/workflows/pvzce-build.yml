@@ -196,7 +196,7 @@ jobs:
             -e additionalTestOutputDir /sdcard/Android/media/com.pvzce.pvzl.debug/additional_test_output \
             com.pvzce.pvzl.debug.test/androidx.test.runner.AndroidJUnitRunner \
             2>&1 | tee "$RUNNER_TEMP/pvzce-ui-tests.log"
-          grep -Eq '^OK \(4 tests\)' "$RUNNER_TEMP/pvzce-ui-tests.log"
+          grep -Eq '^OK \(9 tests\)' "$RUNNER_TEMP/pvzce-ui-tests.log"
           ! grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed' "$RUNNER_TEMP/pvzce-ui-tests.log"
 
       - name: Collect actual emulator screenshots and test results

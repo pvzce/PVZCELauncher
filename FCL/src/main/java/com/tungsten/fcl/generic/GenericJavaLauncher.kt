@@ -14,7 +14,7 @@ import java.io.IOException
 import java.util.Properties
 
 object GenericJavaLauncher {
-    fun prepare(context: Context, spec: JavaLaunchSpec, rendererId: String, lwjgl: String): FCLBridge {
+    fun prepare(context: Context, spec: JavaLaunchSpec, rendererId: String, lwjgl: String, login: GameLoginProtocol.Ticket? = null): FCLBridge {
         spec.validate()
         val release = Properties().apply {
             File(spec.runtimeDir, "release").reader().use { load(it) }
@@ -38,10 +38,12 @@ object GenericJavaLauncher {
             .forEach { command.add(it) }
         // Prefer the Android patched LWJGL jars over desktop variants in a game's classpath.
         spec.command(jars.map { it.absolutePath }).forEach { command.add(it) }
+        login?.arguments()?.forEach { command.add(it) }
         val renderer = RendererManager.getRenderer(rendererId)
         val config = FCLConfig(context, FCLPath.LOG_DIR, spec.runtimeDir, spec.workingDir,
             renderer, command.asList().toTypedArray()).apply { lwjglVersion = lwjgl }
         return FCLauncher.launchJarExecutor(config).apply {
+            if (login != null) setGameLoginSecret(login.secretForLogFilter(), login.expiresAt)
             gameDir = spec.workingDir
             this.renderer = rendererId
             java = spec.runtimeDir

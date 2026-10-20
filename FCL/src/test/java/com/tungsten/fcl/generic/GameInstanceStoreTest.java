@@ -1,5 +1,7 @@
 package com.tungsten.fcl.generic;
 
+import static org.junit.Assert.*;
+
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -10,8 +12,6 @@ import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
-
-import static org.junit.Assert.*;
 
 public class GameInstanceStoreTest {
     private Path root;
@@ -26,7 +26,8 @@ public class GameInstanceStoreTest {
         return new String(Files.readAllBytes(file), java.nio.charset.StandardCharsets.UTF_8);
     }
 
-    @Before public void setup() throws Exception {
+    @Before
+    public void setup() throws Exception {
         root = Files.createTempDirectory("pvzce instances 中文 ").toRealPath();
         Path legacy = Files.createDirectories(root.resolve("games/legacy"));
         write(legacy.resolve("original.dat"), "do not change");
@@ -38,20 +39,27 @@ public class GameInstanceStoreTest {
         first = store.initialize(config);
     }
 
-    @After public void cleanup() throws Exception {
+    @After
+    public void cleanup() throws Exception {
         try (var files = Files.walk(root)) {
-            for (Path file : files.sorted(Comparator.reverseOrder()).toArray(Path[]::new)) Files.delete(file);
+            for (Path file : files.sorted(Comparator.reverseOrder()).toArray(Path[]::new))
+                Files.delete(file);
         }
     }
 
-    @Test public void migrationIsIdempotentAndNeverMovesLegacyData() throws Exception {
-        assertEquals(first.id, store.initialize(Map.of("work", root.resolve("ignored").toString())).id);
+    @Test
+    public void migrationIsIdempotentAndNeverMovesLegacyData() throws Exception {
+        assertEquals(
+                first.id, store.initialize(Map.of("work", root.resolve("ignored").toString())).id);
         assertEquals("do not change", read(first.directory().toPath().resolve("original.dat")));
-        assertEquals("中文参数\n--literal", new GameInstanceStore(root.toFile()).selected().config.get("args"));
+        assertEquals(
+                "中文参数\n--literal",
+                new GameInstanceStore(root.toFile()).selected().config.get("args"));
         assertEquals(1, store.list(false).size());
     }
 
-    @Test public void configurationCopiesHaveIndependentMutableGameDirectories() throws Exception {
+    @Test
+    public void configurationCopiesHaveIndependentMutableGameDirectories() throws Exception {
         var second = store.create("第二实例", first.config);
         assertNotEquals(first.directory(), second.directory());
         assertEquals(first.config.get("jar"), second.config.get("jar"));
@@ -66,11 +74,19 @@ public class GameInstanceStoreTest {
         }
     }
 
-    @Test public void sharedAndNestedPathsAreRefusedIncludingAliasesAndArchivedInstances() throws Exception {
+    @Test
+    public void sharedAndNestedPathsAreRefusedIncludingAliasesAndArchivedInstances()
+            throws Exception {
         var second = store.create("independent", first.config);
         Path alias = root.resolve("alias");
         Files.createSymbolicLink(alias, first.directory().toPath());
-        for (String path : new String[] {first.directory().getPath(), first.directory() + "/nested", root.toString(), alias.toString()}) {
+        for (String path :
+                new String[] {
+                    first.directory().getPath(),
+                    first.directory() + "/nested",
+                    root.toString(),
+                    alias.toString()
+                }) {
             Map<String, String> bad = new HashMap<>(second.config);
             bad.put("work", path);
             try {
@@ -92,7 +108,8 @@ public class GameInstanceStoreTest {
         assertEquals(second.directory(), store.get(second.id).directory());
     }
 
-    @Test public void archiveAndRestorePreserveDataAndAlwaysKeepOneActiveInstance() throws Exception {
+    @Test
+    public void archiveAndRestorePreserveDataAndAlwaysKeepOneActiveInstance() throws Exception {
         try {
             store.archive(first.id, true);
             fail("Archived the last instance");
@@ -111,7 +128,8 @@ public class GameInstanceStoreTest {
         assertEquals(second.directory(), store.get(second.id).directory());
     }
 
-    @Test public void separateStoreHandlesDoNotOverwriteEachOthersChanges() throws Exception {
+    @Test
+    public void separateStoreHandlesDoNotOverwriteEachOthersChanges() throws Exception {
         var other = new GameInstanceStore(root.toFile());
         var second = other.create("second", first.config);
         store.rename(first.id, "renamed");
@@ -120,7 +138,8 @@ public class GameInstanceStoreTest {
         assertEquals(second.id, store.selected().id);
     }
 
-    @Test public void corruptedRegistryIsNotSilentlyReset() throws Exception {
+    @Test
+    public void corruptedRegistryIsNotSilentlyReset() throws Exception {
         Path file = root.resolve("launcher_instances/registry.properties");
         write(file, "corrupt content");
         try {
@@ -130,5 +149,19 @@ public class GameInstanceStoreTest {
             // Rejected without overwriting user data.
         }
         assertEquals("corrupt content", read(file));
+    }
+
+    @Test
+    public void runtimeLoginCodeCannotEnterPersistentInstanceConfiguration() throws Exception {
+        String before = read(root.resolve("launcher_instances/registry.properties"));
+        Map<String, String> config = new HashMap<>(first.config);
+        config.put("args", "--pvzceLoginCode\nfixture-ephemeral-secret");
+        try {
+            store.update(first.id, config);
+            fail();
+        } catch (IOException expected) {
+            assertFalse(expected.getMessage().contains("fixture-ephemeral-secret"));
+        }
+        assertEquals(before, read(root.resolve("launcher_instances/registry.properties")));
     }
 }

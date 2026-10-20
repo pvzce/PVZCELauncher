@@ -64,6 +64,23 @@ public class FCLBridge {
     public static final int CursorDisabled = 0;
 
     private FCLBridgeCallback callback;
+    private com.tungsten.fcl.generic.LaunchSecretFilter secretFilter = new com.tungsten.fcl.generic.LaunchSecretFilter("");
+    private long loginExpiresAt;
+
+    public void setGameLoginSecret(String secret, long expiresAt) {
+        secretFilter = new com.tungsten.fcl.generic.LaunchSecretFilter(secret);
+        loginExpiresAt = expiresAt;
+    }
+
+    public String redactSecret(String text) {
+        return secretFilter.redact(text);
+    }
+
+    public void validateGameLoginExpiry() throws java.io.IOException {
+        if (loginExpiresAt > 0 && System.currentTimeMillis() >= loginExpiresAt)
+            throw new java.io.IOException("游戏登录凭证已过期，请重新启动或关闭账号交接后离线启动");
+    }
+
 
     private double scaleFactor = 1f;
     private String controller = "Default";
@@ -240,7 +257,9 @@ public class FCLBridge {
     }
 
     // FCLBridge callbacks
-    public void onExit(int code) {
+    public synchronized void onExit(int code) {
+        String remainder = secretFilter.finish();
+        if (callback != null && !remainder.isEmpty()) callback.onLog(remainder);
         if (callback != null) {
             callback.onLog("\nOpenJDK exited with code : " + code + "\n");
             callback.onExit(code);
@@ -401,9 +420,10 @@ public class FCLBridge {
         this.logPath = logPath;
     }
 
-    public void receiveLog(String log) {
+    public synchronized void receiveLog(String log) {
         if (callback != null) {
-            callback.onLog(log);
+            String safe = secretFilter.accept(log);
+            if (!safe.isEmpty()) callback.onLog(safe);
         }
     }
 

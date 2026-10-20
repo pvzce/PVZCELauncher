@@ -676,6 +676,7 @@ class GenericLauncherActivity : FCLActivity() {
     private fun save(showDialog: Boolean = true): Boolean {
         if (!initialized) return true
         return runCatching {
+            JavaLaunchSpec.rejectLoginArguments(JavaLaunchSpec.lines(fields.getValue("args").text.toString()))
             val config = fields.mapValues { it.value.text.toString() }.toMutableMap()
             config["pvzce"] = pvzce.isChecked.toString()
             config["runtime"] = runtimes.selectedItem.toString()
@@ -734,13 +735,16 @@ class GenericLauncherActivity : FCLActivity() {
                 // Native bridge class initialization is kept on the main thread (Choreographer).
                 val validated = withContext(Dispatchers.IO) {
                     runCatching {
-                        if (usePvzce) PvzceProfile.configure(rawSpec, lwjglVersion)
+                        val spec = if (usePvzce) PvzceProfile.configure(rawSpec, lwjglVersion)
                         else rawSpec.also { it.validate() }
+                        Pair(spec, if (usePvzce) GameLoginCoordinator.prepare(this@GenericLauncherActivity, spec) else GameLoginCoordinator.Result())
                     }
                 }
                 if (validated.isFailure) showError(validated.exceptionOrNull()!!)
                 else runCatching {
-                    val bridge = GenericJavaLauncher.prepare(this@GenericLauncherActivity, validated.getOrThrow(), rendererId, lwjglVersion)
+                    val (spec, login) = validated.getOrThrow()
+                    if (login.notice.isNotEmpty()) android.widget.Toast.makeText(this@GenericLauncherActivity, login.notice, android.widget.Toast.LENGTH_LONG).show()
+                    val bridge = GenericJavaLauncher.prepare(this@GenericLauncherActivity, spec, rendererId, lwjglVersion, login.ticket)
                     GenericJvmActivity.pendingBridge = bridge
                     startActivity(Intent(this@GenericLauncherActivity, GenericJvmActivity::class.java))
                 }.onFailure { showError(it) }

@@ -42,7 +42,7 @@ public class FCLauncher {
     private static int FCL_VERSION_CODE = -1;
 
     private static void log(FCLBridge bridge, String log) {
-        bridge.getCallback().onLog(log + "\n");
+        bridge.receiveLog(log + "\n");
     }
 
     private static void printTaskTitle(FCLBridge bridge, String task) {
@@ -489,8 +489,7 @@ public class FCLauncher {
         String[] args = rebaseArgs(config, libraryPath);
         boolean javaArgs = true;
         int mainClass = 0;
-        boolean isToken = false;
-        for (String arg : args) {
+        for (String arg : com.tungsten.fcl.generic.LaunchSecretFilter.arguments(args)) {
             if (javaArgs)
                 javaArgs = !arg.equals("mio.Wrapper");
             String title = task.equals("Minecraft") ? javaArgs ? "Java" : task : task;
@@ -499,19 +498,13 @@ public class FCLauncher {
                 mainClass++;
                 prefix = "MainClass: ";
             }
-            if (isToken) {
-                isToken = false;
-                log(bridge, prefix + "***");
-                continue;
-            }
-            if (arg.equals("--accessToken"))
-                isToken = true;
             log(bridge, prefix + arg);
         }
         bridge.setLdLibraryPath(libraryPath);
         bridge.setupExitTrap(bridge);
         FCLBridge.initializeHooks();
         log(bridge, "Hook success");
+        bridge.validateGameLoginExpiry();
         int exitCode = VMLauncher.launchJVM(args);
         bridge.onExit(exitCode);
     }
@@ -566,7 +559,7 @@ public class FCLauncher {
             } catch (Exception e) {
                 log(bridge, "Launcher error: " + e);
                 bridge.onExit(-1);
-                Logging.LOG.log(Level.SEVERE, e.toString());
+                Logging.LOG.log(Level.SEVERE, bridge.redactSecret(e.toString()));
             }
         });
 

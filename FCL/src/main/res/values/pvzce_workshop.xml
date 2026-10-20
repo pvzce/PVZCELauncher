@@ -17,4 +17,19 @@
     <item name="pvzce_workshop_results" type="id"/>
     <item name="pvzce_workshop_refresh" type="id"/>
     <item name="pvzce_workshop_install" type="id"/>
+    <item name="pvzce_creator_message" type="id"/>
+    <item name="pvzce_creator_refresh" type="id"/>
+    <item name="pvzce_creator_slug" type="id"/>
+    <item name="pvzce_creator_title" type="id"/>
+    <item name="pvzce_creator_description" type="id"/>
+    <item name="pvzce_creator_license" type="id"/>
+    <item name="pvzce_creator_tags" type="id"/>
+    <item name="pvzce_creator_save" type="id"/>
+    <item name="pvzce_creator_number" type="id"/>
+    <item name="pvzce_creator_changelog" type="id"/>
+    <item name="pvzce_creator_games" type="id"/>
+    <item name="pvzce_creator_dependencies" type="id"/>
+    <item name="pvzce_creator_version_create" type="id"/>
+    <item name="pvzce_creator_upload" type="id"/>
+    <item name="pvzce_creator_reason" type="id"/>
 </resources>

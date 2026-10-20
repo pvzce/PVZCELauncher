@@ -41,14 +41,23 @@ public final class WorkshopApi {
                                             ? "请求过于频繁或额度不足，请稍后重试"
                                             : status == 503
                                                     ? "服务器功能尚未配置或暂时不可用"
-                                                    : "服务器返回 HTTP " + status);
+                                                    : status == 409
+                                                            ? "版本号、文件槽或上传请求冲突，请刷新作品与额度后核对"
+                                                            : status == 413
+                                                                    ? "文件超过服务器大小限制"
+                                                                    : status == 400
+                                                                            ? "提交内容或状态不符合服务器要求，请检查表单与作品状态"
+                                                                            : "服务器返回 HTTP "
+                                                                                    + status);
             this.status = status;
         }
     }
 
     public static final class Project {
         public long id, owner_id, downloads;
+        public Long icon_file_id;
         public String slug = "", title = "", kind = "", description = "", license = "", state = "";
+        public String content_label = "general";
         public List<String> tags = new ArrayList<>();
     }
 
@@ -84,6 +93,7 @@ public final class WorkshopApi {
         public Project project;
         public List<Version> versions = new ArrayList<>();
         public List<PackageFile> files = new ArrayList<>();
+        public com.google.gson.JsonArray reviews = new com.google.gson.JsonArray();
 
         public PackageFile file(Version version) throws IOException {
             List<PackageFile> matches = new ArrayList<>();
@@ -114,7 +124,7 @@ public final class WorkshopApi {
 
         public void check() throws IOException {
             if (cancelled || Thread.currentThread().isInterrupted())
-                throw new IOException("下载已取消，重试将重新下载");
+                throw new IOException("传输已取消；重新发起会重新发送文件");
         }
     }
 
@@ -205,6 +215,99 @@ public final class WorkshopApi {
                 JSON.fromJson(request("GET", "/api/v1/projects/" + id, null, ""), Detail.class);
         if (detail.project == null || detail.project.id != id) throw new IOException("作品响应无效");
         return detail;
+    }
+
+    /** Fixed-length raw upload: cookie, CSRF and origin match the existing site contract. */
+    public PackageFile upload(
+            long project,
+            long version,
+            String purpose,
+            File source,
+            String filename,
+            String sha256,
+            String idempotency,
+            String csrf,
+            Transfer transfer,
+            Progress progress)
+            throws IOException {
+        if (project < 1
+                || !(purpose.equals("package") || purpose.equals("icon"))
+                || (purpose.equals("package") != (version > 0))
+                || source.length() < 1
+                || source.length() > MAX_PACKAGE
+                || !filename.matches("[A-Za-z0-9._-]{1,180}")
+                || !sha256.matches("[a-f0-9]{64}")
+                || !idempotency.matches("[A-Za-z0-9-]{16,80}")
+                || csrf.isEmpty()) throw new IOException("上传目标、文件或请求标识无效");
+        transfer.check();
+        HttpURLConnection connection =
+                open(
+                        "/api/v1/projects/"
+                                + project
+                                + "/uploads/"
+                                + purpose
+                                + (version > 0 ? "?version_id=" + version : ""));
+        transfer.connection = connection;
+        try {
+            connection.setRequestMethod("PUT");
+            connection.setReadTimeout(15 * 60 * 1000);
+            connection.setRequestProperty("Content-Type", "application/octet-stream");
+            connection.setRequestProperty("X-CSRF-Token", csrf);
+            connection.setRequestProperty("Origin", base);
+            connection.setRequestProperty("Upload-Filename", filename);
+            connection.setRequestProperty("Upload-SHA256", sha256);
+            connection.setRequestProperty("Idempotency-Key", idempotency);
+            connection.setDoOutput(true);
+            connection.setFixedLengthStreamingMode(source.length());
+            IOException sending = null;
+            try (InputStream input = Files.newInputStream(source.toPath());
+                    OutputStream out = connection.getOutputStream()) {
+                byte[] buffer = new byte[65536];
+                int n;
+                long total = 0;
+                while ((n = input.read(buffer)) != -1) {
+                    transfer.check();
+                    out.write(buffer, 0, n);
+                    total += n;
+                    progress.update(total, source.length());
+                }
+            } catch (IOException error) {
+                transfer.check();
+                sending = error;
+            }
+            int status;
+            try {
+                status = connection.getResponseCode();
+            } catch (IOException error) {
+                if (sending != null) throw sending;
+                throw error;
+            }
+            if (status < 200 || status >= 300) throw new ApiException(status);
+            try (InputStream input = connection.getInputStream()) {
+                JsonObject result =
+                        JsonParser.parseString(
+                                        new String(
+                                                read(input, 8 * 1024 * 1024),
+                                                StandardCharsets.UTF_8))
+                                .getAsJsonObject();
+                PackageFile file = JSON.fromJson(result.get("data"), PackageFile.class);
+                if (file == null
+                        || file.id < 1
+                        || file.project_id != project
+                        || file.version_id != version
+                        || !purpose.equals(file.purpose)
+                        || file.size != source.length()
+                        || !sha256.equals(file.sha256)) {
+                    throw new IOException("上传响应与所选文件不一致，请刷新作品核对服务器记录");
+                }
+                return file;
+            } catch (RuntimeException error) {
+                throw new IOException("上传响应格式无效，请刷新作品核对", error);
+            }
+        } finally {
+            transfer.connection = null;
+            connection.disconnect();
+        }
     }
 
     public JsonElement request(String method, String path, JsonObject body, String csrf)

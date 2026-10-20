@@ -76,14 +76,14 @@
 - 来源跟随模组开关改名、手工重命名、回收和恢复。导出 ZIP 在既有 `.pvzce-backup.json` 增加可选
   `origins` 字段；旧备份继续导入，新备份校验来源后恢复。不将 `.pvzce-workshop.json` 当作游戏内容包。
 
-## 第二阶段衔接与后端需求
+## 第二阶段实现与剩余后端需求
 
 账号入口：`WorkshopSessionStore` / `WorkshopLoginActivity`；API：`WorkshopApi.request()`；
 界面/任务：`PvzceWorkshopActivity` / `WorkshopViewModel`；安装与来源：`WorkshopInstaller`、
 `WorkshopOrigins`、`WorkshopTarget` 与 `PvzceContentStore`。
 
-1. **作品上传**尚未在本阶段实现。可复用已核验的 Cookie、CSRF 和 v1 客户端，对接现有作品/版本/
-   上传/扫描/审核状态接口。禁止把账号凭据放入现有实例配置或来源/备份文件。
+1. **作品上传**已由独立的 `WorkshopCreatorActivity` / `WorkshopCreatorViewModel` 对接现有 Cookie/CSRF 接口，
+   详见 [创作者说明](PVZCE_CREATOR.md)。私有作者响应不进入公共缓存；上传和审核状态分别展示。
 2. **自动解析依赖**缺少直接的版本 ID 查询接口。目前依赖只有 version_id/kind，而版本详情接口要求
    先知道 project_id。建议后端提供公开的 `GET /api/v1/versions/{id}`（或等价批量接口），返回
    project_id、作品种类、版本及依赖，复用现有发布/分级/安全与授权规则。不存在/不可见版本返回 404，
@@ -91,11 +91,11 @@
 3. **系统浏览器原生授权**没有现成的 app callback/PKCE 或 device authorization 交接 API。
    当前 Casdoor 自有登录通过专用 WebView + 原生 Cookie 核验可对接现有后端；若某第三方身份提供方禁止
    WebView，需要后端支持原生客户端授权后再切系统浏览器，不能假设 Chrome Cookie 可直接读出。
-4. **向游戏传登录**尚未实现；现有 Cookie 不是可直接交给游戏的 Bearer token。
-   第二阶段需确定短时单次游戏登录码的签发、兑换、游戏会话验证/撤销与参数脱敏，启动器与后端/游戏保持
-   同一契约，再向游戏仓库提交详细 issue。当前不注入未支持的登录参数、不宣称游戏已经登录。
+4. **向游戏传登录**已实现受能力声明保护的临时参数与日志脱敏，但后端/游戏尚未支持，当前会离线启动。
+   需要签发、单次兑换、受限游戏会话验证/撤销以及游戏参数消费；字段与条件见
+   [游戏登录契约](PVZCE_GAME_LOGIN.md)。不把网站 Cookie 交给游戏，不宣称端到端登录可用。
 
-## 验证
+## 第一阶段验证记录
 
 主机真实 JUnit 已验证 HTTP 字节交互、地址/端口隔离、筛选编码、重定向拒绝、401、摘要与取消清理，
 以及实际临时文件系统上的安装、旧版本恢复、禁用状态、来源备份往返、本地修改保护、安全解压、
@@ -120,7 +120,7 @@ APK 包名分别为 `com.pvzce.pvzl` 与 `com.pvzce.pvzl.debug`，最终 APK 的
 provider/旧入口隔离、专用登录进程及非导出 Activity、ABI 与 Android Debug 开发签名另行核验。
 完整单测集未在本次扩大运行，不将相关回归冒充全库结果。
 
-草稿 [PR #4](https://github.com/pvzce/PVZCELauncher/pull/4) 保留给第二阶段继续开发；未合并或创建正式 Release。
+第一阶段草稿 [PR #4](https://github.com/pvzce/PVZCELauncher/pull/4) 保留不变；第二阶段从它派生独立分支，均未合并或创建正式 Release。
 [分支 CI / APK 产物入口](https://github.com/pvzce/PVZCELauncher/actions/workflows/pvzce-build.yml?query=branch%3Afeat%2Fpvzce-workshop-stage1-20261019)
 随最终代码推送触发；CI / UI 的实时状态以工作流为准，不能把本地构建通过写成设备界面通过。
 本环境 `adb devices` 没有连接设备，没有执行设备 instrumentation 或获取界面截图。

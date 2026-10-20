@@ -60,4 +60,27 @@ class PvzceWorkshopUiTest {
             assertFalse(File(context.filesDir, "pvzce_sessions").exists())
         } finally { sessions.clear(first); sessions.clear(second) }
     }
+    @Test fun creatorChooserKeepsOriginalUploadTargetAcrossRecreation() {
+        check(context.packageName.endsWith(".debug"))
+        context.getSharedPreferences("pvzce_workshop", 0).edit().clear().commit()
+        ActivityScenario.launch<WorkshopCreatorActivity>(Intent(context, WorkshopCreatorActivity::class.java)).use { scenario ->
+            val choice = WorkshopCreatorViewModel.Selection("https://workshop.example", 42, 7, 9, "package", "mod")
+            var retained: WorkshopCreatorViewModel? = null
+            scenario.onActivity { activity ->
+                retained = ViewModelProvider(activity)[WorkshopCreatorViewModel::class.java]
+                retained!!.choosing = choice
+                activity.findViewById<EditText>(R.id.pvzce_creator_title).setText("重建后保留的草稿")
+            }
+            scenario.recreate()
+            scenario.onActivity { activity ->
+                val model = ViewModelProvider(activity)[WorkshopCreatorViewModel::class.java]
+                assertSame(retained, model)
+                assertEquals(choice, model.choosing)
+                assertEquals("重建后保留的草稿", activity.findViewById<EditText>(R.id.pvzce_creator_title).text.toString())
+                assertNotNull(activity.findViewById<android.view.View>(R.id.pvzce_creator_upload))
+                assertNull(activity.findViewById<android.view.View>(R.id.account))
+            }
+        }
+    }
+
 }
