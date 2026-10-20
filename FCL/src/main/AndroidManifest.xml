@@ -63,6 +63,9 @@
             </intent-filter>
         </activity>
 
+        <activity android:name=".generic.PvzceWorkshopActivity" android:exported="false" android:screenOrientation="sensorLandscape" />
+        <activity android:name=".generic.WorkshopLoginActivity" android:exported="false" android:process=":pvzce_login" android:screenOrientation="sensorLandscape" />
+
         <activity android:name=".activity.SplashActivity" android:exported="false" android:enabled="${minecraftEnabled}" />
         <activity android:name=".generic.GenericJvmActivity" android:exported="false"
             android:configChanges="keyboardHidden|orientation|screenSize|smallestScreenSize|screenLayout|keyboard|navigation|uiMode"

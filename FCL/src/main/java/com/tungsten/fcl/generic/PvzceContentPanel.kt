@@ -255,9 +255,15 @@ class PvzceContentPanel(
             }
             binding.info.isEnabled = !busy
             binding.info.setOnClickListener {
-                FCLAlertDialog.Builder(activity).setTitle(entry.title)
+                val dialog = FCLAlertDialog.Builder(activity).setTitle(entry.title)
                     .setMessage("${entry.filename}\n${entry.description}\n修改时间：${java.util.Date(entry.modified)}")
-                    .setPositiveButton("确定", null).create().show()
+                    .setPositiveButton("确定", null)
+                if (entry.workshopProject > 0) dialog.setNeutralButton("查看工坊版本 / 更新") {
+                    activity.startActivity(android.content.Intent(activity, PvzceWorkshopActivity::class.java)
+                        .putExtra("api", entry.workshopApi).putExtra("project", entry.workshopProject)
+                        .putExtra("instance", activity.workshopInstanceId()))
+                }
+                dialog.create().show()
             }
         }
     }

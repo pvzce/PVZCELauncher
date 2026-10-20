@@ -31,7 +31,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 
-/** Offline launcher entry. Retained Minecraft activities are disabled in the manifest. */
+/** PVZCE launcher entry. Retained Minecraft activities are disabled in the manifest. */
 class GenericLauncherActivity : FCLActivity() {
     private val fields = linkedMapOf<String, EditText>()
     private lateinit var runtimes: Spinner
@@ -310,6 +310,12 @@ class GenericLauncherActivity : FCLActivity() {
             }
         }
         val home = page(R.id.pvzce_page_home)
+        action(home, R.id.pvzce_open_workshop, R.string.pvzce_workshop) {
+            if (save()) startActivity(Intent(this, PvzceWorkshopActivity::class.java).putExtra("instance", instanceId))
+        }
+        action(home, R.id.pvzce_open_account, R.string.pvzce_account) {
+            if (save()) startActivity(Intent(this, PvzceWorkshopActivity::class.java).putExtra("account", true).putExtra("instance", instanceId))
+        }
         text(home, R.string.pvzce_instance)
         instances = Spinner(this).apply {
             id = R.id.pvzce_instance
@@ -476,6 +482,8 @@ class GenericLauncherActivity : FCLActivity() {
         "pvzce" to pvzceMode.toString(), "runtime" to if (pvzceMode) "jre25" else "jre8",
         "lwjgl" to if (pvzceMode) PvzceProfile.LWJGL else lwjglNames.first(),
         "renderer" to if (pvzceMode) RendererManager.RENDERER_VIRGL.id else RendererManager.rendererList.first().id)
+
+    fun workshopInstanceId(): String = instanceId
 
     private fun refreshInstances() {
         val items = instanceStore.list(false)

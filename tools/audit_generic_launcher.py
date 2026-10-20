@@ -32,6 +32,11 @@ legacy = ['.activity.SplashActivity', '.activity.MainActivity', '.activity.WebAc
 for name in legacy:
     component = next(c for c in app if c.get(android + 'name') == name)
     assert component.get(android + 'enabled') == '${minecraftEnabled}', name
+for name in ['.generic.PvzceWorkshopActivity', '.generic.WorkshopLoginActivity']:
+    component = next(c for c in app if c.get(android + 'name') == name)
+    assert component.get(android + 'exported') == 'false', name
+login = next(c for c in app if c.get(android + 'name') == '.generic.WorkshopLoginActivity')
+assert login.get(android + 'process') == ':pvzce_login'
 assert not manifest.findall('permission'), 'Review any new custom permissions'
 for path in (root / 'FCL/src/main/res').glob('values*/strings.xml'):
     resources = ET.parse(path).getroot()

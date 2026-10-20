@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="pvzce_workshop">在线工坊</string>
+    <string name="pvzce_account">账号与 API</string>
+    <item name="pvzce_open_workshop" type="id"/>
+    <item name="pvzce_open_account" type="id"/>
+    <item name="pvzce_workshop_message" type="id"/>
+    <item name="pvzce_api_address" type="id"/>
+    <item name="pvzce_account_summary" type="id"/>
+    <item name="pvzce_account_login" type="id"/>
+    <item name="pvzce_profile_name" type="id"/>
+    <item name="pvzce_profile_bio" type="id"/>
+    <item name="pvzce_workshop_search" type="id"/>
+    <item name="pvzce_workshop_tag" type="id"/>
+    <item name="pvzce_workshop_game" type="id"/>
+    <item name="pvzce_workshop_project_id" type="id"/>
+    <item name="pvzce_workshop_results" type="id"/>
+    <item name="pvzce_workshop_refresh" type="id"/>
+    <item name="pvzce_workshop_install" type="id"/>
+</resources>

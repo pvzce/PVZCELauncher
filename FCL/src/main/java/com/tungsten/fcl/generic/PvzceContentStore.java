@@ -25,7 +25,7 @@ import java.util.zip.ZipOutputStream;
 
 /** PVZCE file formats only: Fabric metadata, directory packs, and complete save directories. */
 public final class PvzceContentStore {
-    private static final Object LOCK = new Object();
+    static final Object LOCK = new Object();
     private static final int MAX_ENTRIES = 20000;
     private static final long MAX_BYTES = 1024L * 1024 * 1024;
     private static final String BACKUP_MANIFEST = ".pvzce-backup.json";
@@ -45,13 +45,17 @@ public final class PvzceContentStore {
         public final String description;
         public final boolean enabled;
         public final long modified;
+        public final String workshopApi;
+        public final long workshopProject;
 
-        private Entry(File file, String title, String description, boolean enabled) {
+        private Entry(File file, String title, String description, boolean enabled, JsonObject origin) {
             filename = file.getName();
             this.title = title;
             this.description = description;
             this.enabled = enabled;
             modified = file.lastModified();
+            workshopApi = origin == null ? "" : origin.get("api").getAsString();
+            workshopProject = origin == null ? 0 : origin.get("project").getAsLong();
         }
     }
 
@@ -91,6 +95,7 @@ public final class PvzceContentStore {
             if (files == null) throw new IOException("无法读取内容目录");
             JsonObject selection = kind == Kind.RESOURCES || kind == Kind.DATA ? packSelection() : null;
             List<Entry> result = new ArrayList<>();
+            WorkshopOrigins origins = new WorkshopOrigins(game);
             for (File file : files) {
                 if (Files.isSymbolicLink(file.toPath())) continue;
                 boolean mod = kind == Kind.MODS;
@@ -120,8 +125,11 @@ public final class PvzceContentStore {
                 } catch (Exception error) {
                     description = "元数据不可读，原文件保留：" + file.getName();
                 }
+                JsonObject origin = origins.get(kind, file.getName());
+                if (origin != null) description += "\n工坊版本 " + origin.get("number").getAsString()
+                        + " · 作品 #" + origin.get("project").getAsLong() + " · " + origin.get("api").getAsString();
                 result.add(new Entry(file, title, description, mod ? file.getName().toLowerCase(Locale.ROOT).endsWith(".jar")
-                        : selection == null || !disabled(selection, file.getName())));
+                        : selection == null || !disabled(selection, file.getName()), origin));
             }
             result.sort(Comparator.comparing(entry -> entry.filename.toLowerCase(Locale.ROOT)));
             return result;
@@ -136,7 +144,7 @@ public final class PvzceContentStore {
                 boolean current = name.toLowerCase(Locale.ROOT).endsWith(".jar");
                 if (current == enabled) return;
                 String target = enabled ? name.substring(0, name.length() - ".disabled".length()) : name + ".disabled";
-                move(source, checkedChild(directory(kind), target));
+                moveWithOrigin(kind, source, checkedChild(directory(kind), target));
             } else if (kind == Kind.RESOURCES || kind == Kind.DATA) {
                 JsonObject selection = packSelection();
                 changeDisabled(selection, name, !enabled);
@@ -167,7 +175,7 @@ public final class PvzceContentStore {
                 // Keep the old key: another pack or a recoverable trash entry may still use it.
                 saveSelection(selection);
             }
-            move(source, target);
+            moveWithOrigin(kind, source, target);
         }
     }
 
@@ -180,10 +188,22 @@ public final class PvzceContentStore {
             Properties meta = new Properties();
             meta.setProperty("kind", kind.name());
             meta.setProperty("name", name);
+            WorkshopOrigins origins = new WorkshopOrigins(game);
+            JsonObject origin = origins.get(kind, name);
+            if (origin != null) meta.setProperty("origin", origin.toString());
             try (OutputStream output = Files.newOutputStream(new File(box, "entry.properties").toPath())) {
                 meta.store(output, "Recoverable PVZCE content");
             }
             move(source, new File(box, "content"));
+            try {
+                origins.put(kind, name, null);
+                origins.save();
+            } catch (IOException error) {
+                move(new File(box, "content"), source);
+                Files.delete(new File(box, "entry.properties").toPath());
+                Files.delete(box.toPath());
+                throw error;
+            }
             return box.getName();
         }
     }
@@ -218,7 +238,17 @@ public final class PvzceContentStore {
             }
             File box = checkedChild(managedDirectory(".pvzce-launcher-trash"), id);
             File content = checkedChild(box, "content");
-            move(content, checkedChild(directory(kind), meta.getProperty("name")));
+            File destination = checkedChild(directory(kind), meta.getProperty("name"));
+            WorkshopOrigins origins = new WorkshopOrigins(game);
+            move(content, destination);
+            try {
+                origins.put(kind, destination.getName(), meta.containsKey("origin")
+                        ? JsonParser.parseString(meta.getProperty("origin")).getAsJsonObject() : null);
+                origins.save();
+            } catch (IOException | RuntimeException error) {
+                move(destination, content);
+                throw new IOException("恢复来源记录失败，内容保留在回收站", error);
+            }
             Files.delete(new File(box, "entry.properties").toPath());
             Files.delete(box.toPath());
         }
@@ -248,8 +278,17 @@ public final class PvzceContentStore {
                     for (String name : names) if (disabled(selection, name)) switchedOff.add(name);
                 }
                 manifest.add("disabled", switchedOff);
+                JsonObject provenance = new JsonObject();
+                WorkshopOrigins origins = new WorkshopOrigins(game);
+                for (String name : names) {
+                    JsonObject origin = origins.get(kind, name);
+                    if (origin != null) provenance.add(name, origin);
+                }
+                manifest.add("origins", provenance);
+                byte[] manifestBytes = manifest.toString().getBytes(StandardCharsets.UTF_8);
+                if (manifestBytes.length > 1024 * 1024) throw new IOException("备份说明超过 1 MiB，请分批导出");
                 zip.putNextEntry(new ZipEntry(BACKUP_MANIFEST));
-                zip.write(manifest.toString().getBytes(StandardCharsets.UTF_8));
+                zip.write(manifestBytes);
                 zip.closeEntry();
                 long[] budget = {0, 0};
                 for (String name : names) {
@@ -322,6 +361,17 @@ public final class PvzceContentStore {
                     }
                     Files.delete(metadata.toPath());
                 }
+                if (manifest != null && manifest.has("origins")) {
+                    try {
+                        for (var entry : manifest.getAsJsonObject("origins").entrySet()) {
+                            checkedChild(stage, entry.getKey());
+                            WorkshopOrigins.validate(entry.getValue().getAsJsonObject());
+                        }
+                    } catch (RuntimeException error) {
+                        throw new IOException("备份工坊来源说明无效", error);
+                    }
+                }
+                WorkshopOrigins importedOrigins = new WorkshopOrigins(game);
                 File[] items = stage.listFiles();
                 if (items == null || items.length == 0) throw new IOException("备份为空");
                 for (File item : items) {
@@ -347,6 +397,13 @@ public final class PvzceContentStore {
                         moved.add(target);
                     }
                     if (selection != null) saveSelection(selection);
+                    WorkshopOrigins origins = importedOrigins;
+                    for (File imported : items) {
+                        JsonObject origin = manifest != null && manifest.has("origins")
+                                ? manifest.getAsJsonObject("origins").getAsJsonObject(imported.getName()) : null;
+                        origins.put(kind, imported.getName(), origin);
+                    }
+                    origins.save();
                 } catch (IOException error) {
                     for (File file : moved) {
                         try {
@@ -387,6 +444,17 @@ public final class PvzceContentStore {
     private static void deleteStage(Path root) throws IOException {
         try (var files = Files.walk(root)) {
             for (Path path : files.sorted(Comparator.reverseOrder()).toArray(Path[]::new)) Files.deleteIfExists(path);
+        }
+    }
+
+    private void moveWithOrigin(Kind kind, File source, File target) throws IOException {
+        WorkshopOrigins origins = new WorkshopOrigins(game);
+        move(source, target);
+        try {
+            origins.moved(kind, source.getName(), target.getName());
+        } catch (IOException error) {
+            move(target, source);
+            throw error;
         }
     }
 
