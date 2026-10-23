@@ -177,7 +177,7 @@ class VersionSetting : Cloneable {
             changed()
         }
 
-    var renderer: String = Renderer.ID_VIRGL
+    var renderer: String = Renderer.DEFAULT_ID
         set(value) {
             if (field == value) return
             field = value
@@ -327,7 +327,7 @@ class VersionSetting : Cloneable {
                 vs.isVKDriverSystem = json["vulkanDriverSystem"]?.asBoolean ?: false
                 vs.controller = json["controller"]?.asString ?: ("00000000")
                 vs.renderer =
-                    json["renderer"]?.asString ?: Renderer.ID_VIRGL
+                    json["renderer"]?.asString ?: Renderer.DEFAULT_ID
                 vs.driver = json["driver"]?.asString ?: "Turnip"
                 vs.isIsolateGameDir = json["isolateGameDir"]?.asBoolean ?: false
                 vs.isNotCheckMod = json["notCheckMod"]?.asBoolean ?: false

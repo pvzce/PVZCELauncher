@@ -342,6 +342,10 @@ public class FCLauncher {
             }
             return;
         }
+        if (renderer.isEqual(Renderer.ID_MOBILEGLUES)) {
+            envMap.putAll(MobileGluesRuntime.environment(new File(config.getContext().getFilesDir(), "mobileglues")));
+            return;
+        }
         envMap.put("MESA_GLSL_CACHE_DIR", config.getContext().getCacheDir().getAbsolutePath());
         envMap.put("MESA_GL_VERSION_OVERRIDE", renderer.isEqual(Renderer.ID_VIRGL) ? "4.3" : "4.6");
         envMap.put("MESA_GLSL_VERSION_OVERRIDE", renderer.isEqual(Renderer.ID_VIRGL) ? "430" : "460");

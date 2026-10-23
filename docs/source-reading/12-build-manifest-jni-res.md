@@ -1,4 +1,4 @@
-> 当前随附资源已精简为 JRE 25 与 VirGL/Zink/Freedreno；本文其余部分是精简前的阅读记录。现状见 [运行组件说明](../PVZCE_RUNTIME_BUNDLE.md)。
+> 当前随附资源已精简为 JRE 25 与 MobileGlues/VirGL/Zink/Freedreno；本文其余部分是精简前的阅读记录。现状见 [运行组件说明](../PVZCE_RUNTIME_BUNDLE.md)。
 
 # 构建脚本、Manifest、JNI、资源与 assets 概览
 

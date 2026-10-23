@@ -66,7 +66,7 @@ class ProcessService : Service() {
             FCLPath.LOG_DIR,
             applicationContext.getDir("runtime", 0).absolutePath + "/java/" + jre,
             FCLPath.CACHE_DIR,
-            com.mio.manager.RendererManager.getRenderer(Renderer.ID_VIRGL),
+            com.mio.manager.RendererManager.getRenderer(Renderer.DEFAULT_ID),
             command ?: emptyArray()
         )
         startProcess(config)

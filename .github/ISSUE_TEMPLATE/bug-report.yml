@@ -80,9 +80,9 @@ body:
     attributes:
       label: Renderer / 渲染器
       description: |
-        Please enter the renderer you are using, or the renderer installed via renderer plugin. Bundled choices are VirGL, Zink and Freedreno; PVZCE requires OpenGL 3.2 core.
-        请输入你正在使用的渲染器，或通过渲染器插件安装的渲染器。内置选项为 VirGL、Zink 和 Freedreno；PVZCE 需要 OpenGL 3.2 core。
-      placeholder: e.g. VirGLRenderer / Zink / Freedreno
+        Please enter the renderer you are using, or the renderer installed via renderer plugin. MobileGlues 2.0.0 is the default; VirGL, Zink and Freedreno are also bundled; PVZCE requires OpenGL 3.2 core.
+        请输入你正在使用的渲染器，或通过渲染器插件安装的渲染器。默认内置 MobileGlues 2.0.0，另有 VirGL、Zink 和 Freedreno；PVZCE 需要 OpenGL 3.2 core。
+      placeholder: e.g. MobileGlues / VirGLRenderer / Zink / Freedreno
   - type: input
     id: game-version
     attributes:

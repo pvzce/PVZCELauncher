@@ -55,7 +55,7 @@ public class JarExecutorHelper {
             fclBridge.setScaleFactor(1f);
             fclBridge.setController(null);
             fclBridge.setGameDir(null);
-            fclBridge.setRenderer(RendererManager.RENDERER_VIRGL.getName());
+            fclBridge.setRenderer(RendererManager.RENDERER_MOBILEGLUES.getName());
             fclBridge.setJava(javaVersion + "");
             JVMActivity.setFCLBridge(fclBridge, MenuType.JAR_EXECUTOR);
             LOG.log(Level.INFO, "Start JVMActivity!");

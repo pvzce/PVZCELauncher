@@ -8,6 +8,7 @@ import com.tungsten.fcl.FCLApp
 import com.tungsten.fcl.R
 
 object RendererManager {
+    lateinit var RENDERER_MOBILEGLUES: Renderer
     lateinit var RENDERER_VIRGL: Renderer
     lateinit var RENDERER_ZINK: Renderer
     lateinit var RENDERER_FREEDRENO: Renderer
@@ -26,6 +27,18 @@ object RendererManager {
         if (isInit) return
         isInit = true
         rendererList.clear()
+
+        RENDERER_MOBILEGLUES = Renderer(
+            "MobileGlues 2.0.0",
+            context.getString(R.string.settings_fcl_renderer_mobileglues),
+            "libmobileglues.so",
+            "libmobileglues.so",
+            "",
+            null,
+            null,
+            Renderer.ID_MOBILEGLUES,
+            "1.17"
+        )
 
         RENDERER_VIRGL = Renderer(
             "VirGLRenderer",
@@ -75,6 +88,7 @@ object RendererManager {
     }
 
     private fun addRenderer() {
+        rendererList.add(RENDERER_MOBILEGLUES)
         rendererList.add(RENDERER_VIRGL)
         rendererList.add(RENDERER_ZINK)
         rendererList.add(RENDERER_FREEDRENO)
@@ -96,7 +110,7 @@ object RendererManager {
 
     @JvmStatic
     fun getRenderer(id: String): Renderer {
-        return rendererList.find { it.id == id } ?: RENDERER_VIRGL
+        return rendererList.find { it.id == id } ?: RENDERER_MOBILEGLUES
     }
 
 }

@@ -19,6 +19,8 @@ data class Renderer(
     val displayMaxMCver: String = ""
 ) {
     companion object {
+        const val ID_MOBILEGLUES = "c3f6a502-c6b3-4e48-9f2e-03e8a928e7bf"
+        const val DEFAULT_ID = ID_MOBILEGLUES
         const val ID_VIRGL = "417a7a93-d9b4-98b9-ec6e-1ea400259c1f"
         const val ID_ZINK = "18d93f17-ff53-a319-fa61-58709a77bf87"
         const val ID_FREEDRENO = "8d427e6c-9d22-2d19-db0c-3b9ac2c1543f"

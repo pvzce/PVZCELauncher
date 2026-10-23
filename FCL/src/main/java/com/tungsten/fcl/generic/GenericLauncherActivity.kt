@@ -362,7 +362,7 @@ class GenericLauncherActivity : FCLActivity() {
         val rendererValues = RendererManager.rendererList.map { it.id }
         renderers = spinner(settings, R.id.pvzce_renderer, R.string.pvzce_renderer,
             RendererManager.rendererList.map { it.name }, "renderer", rendererValues,
-            RendererManager.RENDERER_VIRGL.id)
+            RendererManager.RENDERER_MOBILEGLUES.id)
         lwjgl = spinner(settings, R.id.pvzce_lwjgl, R.string.pvzce_lwjgl, lwjglNames, "lwjgl",
             default = if (fresh) PvzceProfile.LWJGL else lwjglNames.first())
         installButton = action(settings, R.id.pvzce_install, R.string.pvzce_install) { install() }
@@ -481,7 +481,7 @@ class GenericLauncherActivity : FCLActivity() {
         "work" to File(filesDir, if (pvzceMode) "games/pvzce" else "games").absolutePath,
         "pvzce" to pvzceMode.toString(), "runtime" to "jre25",
         "lwjgl" to if (pvzceMode) PvzceProfile.LWJGL else lwjglNames.first(),
-        "renderer" to if (pvzceMode) RendererManager.RENDERER_VIRGL.id else RendererManager.rendererList.first().id)
+        "renderer" to if (pvzceMode) RendererManager.RENDERER_MOBILEGLUES.id else RendererManager.rendererList.first().id)
 
     fun workshopInstanceId(): String = instanceId
 
@@ -666,7 +666,7 @@ class GenericLauncherActivity : FCLActivity() {
                     runtimes.setSelection(runtimeNames.indexOf("jre25"))
                     lwjgl.setSelection(lwjglNames.indexOf(PvzceProfile.LWJGL))
                     renderers.setSelection(RendererManager.rendererList.indexOfFirst {
-                        it.id == RendererManager.RENDERER_VIRGL.id
+                        it.id == RendererManager.RENDERER_MOBILEGLUES.id
                     }.coerceAtLeast(0))
                     if (save()) status.text = getString(R.string.pvzce_ready)
                 }.onFailure { showError(it) }

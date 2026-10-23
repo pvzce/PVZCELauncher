@@ -79,7 +79,7 @@ public class JarExecutorLauncher {
                 FCLPath.LOG_DIR,
                 JavaManager.getSuitableJavaVersion(javaVersion).getJavaPath(null),
                 Profiles.getSelectedProfile().getGameDir().getAbsolutePath(),
-                RendererManager.RENDERER_VIRGL,
+                RendererManager.RENDERER_MOBILEGLUES,
                 finalArgs
         );
         return FCLauncher.launchJarExecutor(config);

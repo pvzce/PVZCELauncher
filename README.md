@@ -28,7 +28,7 @@
 
 1. 主页选择当前实例，可新建、复制配置、重命名、归档或恢复；旧配置原地登记为默认实例，旧数据保留。首次打开默认使用 **PVZCE 预设**：Android JRE 25、patched LWJGL 3.4.1、游戏自带 KnotClient 与私有游戏目录。已有配置不会被覆盖；主页的 **恢复 PVZCE 启动预设** 可在确认后重设启动字段，保留已选 JAR。
 2. 从真实 PVZCE 工程执行 `./gradlew :pvzce-game:shadowJar` 获得游戏 fat JAR，再点击右侧 **选择 / 导入游戏 JAR**。没有内置或虚构的游戏下载地址，也不需要 Minecraft 账号或版本 JSON。
-3. 右侧 **运行时与渲染** 打开设置页，点击 **安装 / 修复所选运行组件**，从 APK 安装唯一随附的 JRE 25、LWJGL 与 AWT/JNA 支持；PVZCE 需要 OpenGL 3.2 core，内置保留 VirGL、Zink、Freedreno，默认 VirGL；设备兼容性尚未验证。
+3. 右侧 **运行时与渲染** 打开设置页，点击 **安装 / 修复所选运行组件**，从 APK 安装唯一随附的 JRE 25、LWJGL 与 AWT/JNA 支持；PVZCE 需要 OpenGL 3.2 core，默认内置 MobileGlues 2.0.0，保留 VirGL、Zink、Freedreno 可选；设备兼容性尚未验证。
 4. 左侧 **内容** 页分为模组、资源包、数据包、存档。沿用 FCL 的搜索、多选、勾选启用、长按重命名和详情流程；支持移入可恢复回收站、导出完整备份 ZIP、导入 JAR / 目录 / 备份。包根须含 `assets/` 或 `data/`，存档须选择世界目录；ZIP 先解包校验，不作为 ZIP 文件直接交给游戏加载。包开关写入 PVZCE 自己的配置，两类同名包共用开关并会提示。修改后重启游戏生效。
 5. 点击右侧 **启动游戏**，执行已有校验并进入独立 Android JVM。错误会显示实际原因，未提供有效游戏 JAR 时不会显示启动成功。
 6. 左侧 **高级** 保留 JAR/classpath、主类、逐行 JVM/游戏参数、工作目录配置；取消 **使用 PVZCE 启动预设校验** 可运行自行提供的通用 Java 程序。**保存配置** 和切后台会持久化当前实例配置；目录不得与另一实例相同或嵌套，修改路径不搬移数据。**浏览游戏数据** 复用原 FCL 文件浏览器。页面、内容分类和搜索支持重建恢复，后台操作锁跨重建保留。
@@ -86,3 +86,5 @@ GitHub 工作流执行上述相关检查，构建两种 APK，并检查最终 AP
 启动器遵循 [GPL-3.0](LICENSE)，保留 FCL-Team、HMCL、Amethyst/Pojav 等原有归属与第三方许可。保留 `com.tungsten.fcl` 等 namespace/JNI 类名以维持 ABI，安装包身份已改为 PVZCE。
 
 游戏及其 Fabric 派生代码、字体、依赖和素材分别遵循游戏仓库的 [LICENSE](https://github.com/pvzce/pvzce/blob/master/LICENSE) 与 [THIRD-PARTY.md](https://github.com/pvzce/pvzce/blob/master/THIRD-PARTY.md)。启动器可导入内容不表示授予其分发许可；启动器原有 LWJGLX 等许可未明项仍需正式分发前核查。
+
+MobileGlues 的固定发布来源、校验值与许可见 [运行组件说明](docs/PVZCE_RUNTIME_BUNDLE.md)；无需预装渲染器插件。
