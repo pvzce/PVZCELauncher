@@ -7,7 +7,7 @@
 ## 使用
 
 1. 安装开发 APK 后从桌面打开 **PVZCE Launcher**。首次进入直接显示通用配置页，不需要 Minecraft 账户、版本 JSON、下载器或整合包。
-2. 选择 Android JRE（jre8、jre17、jre21 或 jre25），点击 **Install / repair selected bundled runtime**。仅从 APK 自带资产安装该 JRE 以及 LWJGL、Cacio、JNA；不会联网下载。安装失败会显示错误，不自动继续启动。
+2. 使用唯一随附的 Android JRE 25（jre25），点击 **Install / repair selected bundled runtime**。仅从 APK 自带资产安装该 JRE 以及 LWJGL、Cacio、JNA；不会联网下载。安装失败会显示错误，不自动继续启动。
 3. 用 **Import JAR / dependency files** 从 Android 文档选择器导入真实文件。文件复制到应用私有 `files/games/imported`；不覆盖同名文件。一个文件默认填入 JAR，多文件填入 classpath。可用应用 DocumentsProvider 管理游戏数据。需要额外资源目录时，通过该 Provider 建立目录并复制资源。
 4. 填写 JAR 或 classpath、真实主类、JVM 参数、程序参数、工作目录，选择渲染器与 LWJGL 版本。classpath、JVM 参数、程序参数均为**每行一个完整参数**，不做 shell 展开或空格分词；路径中的空格不用额外引号。空配置字段表示无参数；尾部空行会报错。工作目录须为存在、可读写的绝对路径；JAR/classpath 相对路径以工作目录解析。
 5. 若主类为空，JAR 必须具有真实的 `Main-Class`。Android 入口读取实际 Manifest 后将它与 bundled LWJGL 一起组成 classpath；主类非空时直接使用填写的主类。Manifest 的依赖关系仍由 Java JAR 类加载器处理。不要使用 JVM 参数字段指定 `-jar`、`-cp`、模块入口或 argfile；配置校验会拒绝这些入口冲突。

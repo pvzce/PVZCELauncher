@@ -1,0 +1,25 @@
+{
+  "name": "MobileGlues",
+  "version": "2.0.0",
+  "license": "LGPL-2.1-only",
+  "release_url": "https://github.com/MobileGL-Dev/MobileGlues-release/releases/tag/V2.0.0",
+  "apk_url": "https://github.com/MobileGL-Dev/MobileGlues-release/releases/download/V2.0.0/MobileGlues_2.0.0.apk",
+  "apk_sha256": "a7e1eb29731fdece7ab3af7fb00692b856f1808a7544436e7b3eb6c08355581a",
+  "signer_certificate_sha256": "324f4efaff81632373dec9bc714a904b64740249410b551b61805340e42ff5d5",
+  "plugin_source": "https://github.com/MobileGL-Dev/MobileGlues-plugin/tree/c0e48848ef3850e326606ba092774edbb7d904ff",
+  "renderer_source": "https://github.com/MobileGL-Dev/MobileGlues/tree/f56af31d3e490d95808b3adc4ace20234249a37a",
+  "renderer_source_commit": "f56af31d3e490d95808b3adc4ace20234249a37a",
+  "library": "libmobileglues.so",
+  "libraries": {
+    "armeabi-v7a": "ea83746861b17efc8750b0975a7bc3b2282f52eaeb42181497149eec4a433838",
+    "arm64-v8a": "3c87948b9b362ad2b6cf48e43ea181014f9999fe4607db0eff8b9db52d385fcd",
+    "x86_64": "23b4d66f4a0af0051edd967370420bf21dbb044167d58e59e649b6b356e30538"
+  },
+  "source_submodules": {
+    "MobileGlues-cpp/3rdparty/SPIRV-Cross": "a0fba56c34a6700f1724bf9b751da5b488a3775c",
+    "MobileGlues-cpp/3rdparty/glslang": "f5f664dee8146676b04a332a7233959fc3ce9681",
+    "MobileGlues-cpp/3rdparty/perfetto": "40b529923598b739b2892a536a7692eedbed5685",
+    "MobileGlues-cpp/3rdparty/xxhash": "c2866db364b6ea3a11933e62235ddc166ba18565",
+    "MobileGlues-cpp/include/ska": "21c1cec95abee1beef827e4a7c95f692875d9594"
+  }
+}

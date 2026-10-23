@@ -24,10 +24,9 @@ object JavaManager {
     @JvmStatic
     fun init() {
         isInit = true
-        javaList.add(JavaVersion(true, "1.8", "Auto"))
-        File(FCLPath.JAVA_PATH).listFiles()?.forEach {
-            addToJavaVersion(it)
-        }
+        javaList.clear()
+        javaList.add(JavaVersion(true, "25", "Auto"))
+        addToJavaVersion(File(FCLPath.JAVA_25_PATH))
     }
 
     @JvmStatic
@@ -47,6 +46,7 @@ object JavaManager {
                     ?.let { match ->
                         match.groupValues[1]
                     } ?: return false
+            if (javaDir.name != "jre25" || version.substringBefore('.').substringBefore('+').substringBefore('-') != "25") return false
             javaList.removeIf { it.name == javaDir.name }
             javaList.add(JavaVersion(false, version, javaDir.name))
             return true
@@ -71,7 +71,7 @@ object JavaManager {
 
     private fun findExactOrNextGreater(version: Int?): JavaVersion {
         if (version == null) {
-            return getJavaFromVersionName("jre8")
+            return getJavaFromVersionName("jre25")
         }
         var exact: JavaVersion? = null
         var closestGreater: JavaVersion? = null

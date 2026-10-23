@@ -27,7 +27,7 @@
     <string name="pvzce_renderer">渲染后端（需要 OpenGL 3.2 core）</string>
     <string name="pvzce_lwjgl">Android LWJGL</string>
     <string name="pvzce_install">安装 / 修复所选运行组件</string>
-    <string name="pvzce_runtime_hint">仅安装 APK 随附组件，不下载游戏。PVZCE 预设需要 Java 25+ 和 patched LWJGL 3.4.1。VirGL 是初始选择，兼容性取决于设备。</string>
+    <string name="pvzce_runtime_hint">仅安装 APK 随附的 JRE 25 与图形组件，不下载游戏。默认 MobileGlues 2.0.0，可选 VirGL、Zink、Freedreno；PVZCE 需要 OpenGL 3.2 core 和 patched LWJGL 3.4.1，兼容性取决于设备。</string>
     <string name="pvzce_theme">外观</string>
     <string name="pvzce_theme_system">跟随系统</string>
     <string name="pvzce_theme_light">浅色</string>

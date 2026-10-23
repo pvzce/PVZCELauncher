@@ -19,6 +19,10 @@ object GenericJavaLauncher {
         val release = Properties().apply {
             File(spec.runtimeDir, "release").reader().use { load(it) }
         }
+        val version = release.getProperty("JAVA_VERSION", "").trim('"')
+        if (version.substringBefore('.').substringBefore('+').substringBefore('-') != "25") {
+            throw IOException("Install bundled Android JRE 25; found JAVA_VERSION=$version")
+        }
         val arch = release.getProperty("OS_ARCH", "").trim('"')
         if (Architecture.archAsInt(arch) != Architecture.getDeviceArchitecture()) {
             throw IOException("Runtime architecture $arch does not match this device")
@@ -31,7 +35,7 @@ object GenericJavaLauncher {
         if (!natives.isDirectory) throw IOException("LWJGL natives for this architecture are missing")
         val command = CommandBuilder()
         CacioJavaArgs.addCacioArgs(command, "1280x720", "javax.swing.plaf.metal.MetalLookAndFeel",
-            null, true, release.getProperty("JAVA_VERSION", "").trim('"').startsWith("1.8"))
+            null, true, false)
         command.add("-Duser.home=" + context.filesDir.absolutePath)
         command.add("-Djava.io.tmpdir=" + context.cacheDir.absolutePath)
         LwjglRuntimeOptions.arguments(natives, File(context.applicationInfo.nativeLibraryDir))
@@ -43,7 +47,7 @@ object GenericJavaLauncher {
             renderer, command.asList().toTypedArray()).apply { lwjglVersion = lwjgl }
         return FCLauncher.launchJarExecutor(config).apply {
             gameDir = spec.workingDir
-            this.renderer = rendererId
+            this.renderer = renderer.id
             java = spec.runtimeDir
             scaleFactor = 1.0
         }

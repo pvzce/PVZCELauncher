@@ -40,7 +40,7 @@ class GenericLauncherActivity : FCLActivity() {
     private lateinit var status: TextView
     private lateinit var installButton: Button
     private lateinit var launchButton: Button
-    private val runtimeNames = listOf("jre8", "jre17", "jre21", "jre25")
+    private val runtimeNames = listOf("jre25")
     private val lwjglNames = listOf("3.3.3", "3.4.1")
     private lateinit var pvzce: CheckBox
     private lateinit var instanceStore: GameInstanceStore
@@ -358,11 +358,11 @@ class GenericLauncherActivity : FCLActivity() {
         val settings = page(R.id.pvzce_page_settings)
         text(settings, R.string.pvzce_runtime_hint)
         runtimes = spinner(settings, R.id.pvzce_runtime, R.string.pvzce_runtime, runtimeNames, "runtime",
-            default = if (fresh) "jre25" else "jre8")
+            default = "jre25")
         val rendererValues = RendererManager.rendererList.map { it.id }
         renderers = spinner(settings, R.id.pvzce_renderer, R.string.pvzce_renderer,
             RendererManager.rendererList.map { it.name }, "renderer", rendererValues,
-            if (fresh) RendererManager.RENDERER_VIRGL.id else rendererValues.first())
+            RendererManager.RENDERER_MOBILEGLUES.id)
         lwjgl = spinner(settings, R.id.pvzce_lwjgl, R.string.pvzce_lwjgl, lwjglNames, "lwjgl",
             default = if (fresh) PvzceProfile.LWJGL else lwjglNames.first())
         installButton = action(settings, R.id.pvzce_install, R.string.pvzce_install) { install() }
@@ -479,9 +479,9 @@ class GenericLauncherActivity : FCLActivity() {
         "jar" to "", "classpath" to "", "main" to if (pvzceMode) PvzceProfile.MAIN_CLASS else "",
         "jvm" to if (pvzceMode) "-Xmx1024m" else "-Xmx512m", "args" to "",
         "work" to File(filesDir, if (pvzceMode) "games/pvzce" else "games").absolutePath,
-        "pvzce" to pvzceMode.toString(), "runtime" to if (pvzceMode) "jre25" else "jre8",
+        "pvzce" to pvzceMode.toString(), "runtime" to "jre25",
         "lwjgl" to if (pvzceMode) PvzceProfile.LWJGL else lwjglNames.first(),
-        "renderer" to if (pvzceMode) RendererManager.RENDERER_VIRGL.id else RendererManager.rendererList.first().id)
+        "renderer" to if (pvzceMode) RendererManager.RENDERER_MOBILEGLUES.id else RendererManager.rendererList.first().id)
 
     fun workshopInstanceId(): String = instanceId
 
@@ -666,7 +666,7 @@ class GenericLauncherActivity : FCLActivity() {
                     runtimes.setSelection(runtimeNames.indexOf("jre25"))
                     lwjgl.setSelection(lwjglNames.indexOf(PvzceProfile.LWJGL))
                     renderers.setSelection(RendererManager.rendererList.indexOfFirst {
-                        it.id == RendererManager.RENDERER_VIRGL.id
+                        it.id == RendererManager.RENDERER_MOBILEGLUES.id
                     }.coerceAtLeast(0))
                     if (save()) status.text = getString(R.string.pvzce_ready)
                 }.onFailure { showError(it) }
@@ -711,7 +711,6 @@ class GenericLauncherActivity : FCLActivity() {
         io({
             RuntimeUtils.installJava(this, File(FCLPath.JAVA_PATH, runtime).absolutePath, "app_runtime/java/$runtime")
             RuntimeUtils.install(this, FCLPath.LWJGL_DIR, "app_runtime/lwjgl")
-            RuntimeUtils.install(this, FCLPath.CACIOCAVALLO_8_DIR, "app_runtime/caciocavallo")
             RuntimeUtils.install(this, FCLPath.CACIOCAVALLO_17_DIR, "app_runtime/caciocavallo17")
             RuntimeUtils.installJna(this, FCLPath.JNA_PATH, "app_runtime/jna")
         }) { status.text = "已安装 $runtime 及随附组件，可选择游戏 JAR 后启动。" }

@@ -80,9 +80,9 @@ body:
     attributes:
       label: Renderer / 渲染器
       description: |
-        Please enter the renderer you are using, or the renderer installed via renderer plugin. Note that different renderers support different game versions (e.g. Holy-GL4ES supports up to 1.21.4, VGPU supports up to 1.16.5).
-        请输入你正在使用的渲染器，或通过渲染器插件安装的渲染器。注意不同渲染器支持的游戏版本不同（例如 Holy-GL4ES 最高支持 1.21.4，VGPU 最高支持 1.16.5）。
-      placeholder: e.g. Holy-GL4ES / Zink / VirGLRenderer / Freedreno / Krypton Wrapper
+        Please enter the renderer you are using, or the renderer installed via renderer plugin. MobileGlues 2.0.0 is the default; VirGL, Zink and Freedreno are also bundled; PVZCE requires OpenGL 3.2 core.
+        请输入你正在使用的渲染器，或通过渲染器插件安装的渲染器。默认内置 MobileGlues 2.0.0，另有 VirGL、Zink 和 Freedreno；PVZCE 需要 OpenGL 3.2 core。
+      placeholder: e.g. MobileGlues / VirGLRenderer / Zink / Freedreno
   - type: input
     id: game-version
     attributes:

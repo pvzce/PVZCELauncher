@@ -14,7 +14,7 @@
 | --- | --- |
 | `gradle.properties` 的 Java 25；`pvzce-game/build.gradle` 的 native-access 参数 | PVZCE 预设选择 bundled jre25；启动时读取真实 release 元数据，拒绝旧运行时，添加 `--enable-native-access=ALL-UNNAMED` |
 | application/shadowJar 的入口 `net.fabricmc.loader.impl.launch.knot.KnotClient` | 使用游戏自带的加载器；检查 fat JAR 的 KnotClient、PvzceGame、PvzceGameProvider 和服务注册条目；不启用 Minecraft Fabric 下载/安装器 |
-| GLFW 平台 API、OpenGL 3.2 core、LWJGL 3.3.6、STB、OpenAL | 预设选择已有 Android patched LWJGL 3.4.1（3.3.3 缺少所需平台 API），保留 Android native/render/audio 后端；预设 VirGL 作为可调整的起点，不承诺任何设备 GPU 兼容 |
+| GLFW 平台 API、OpenGL 3.2 core、LWJGL 3.3.6、STB、OpenAL | 预设选择已有 Android patched LWJGL 3.4.1（3.3.3 缺少所需平台 API），保留 Android native/render/audio 后端；默认内置 MobileGlues 2.0.0（仍可选择 VirGL/Zink/Freedreno），不承诺任何设备 GPU 兼容 |
 | `PvzceGameProvider` 的 `--gameDir` 与五个子目录 | 自动从 Working directory 生成唯一 `--gameDir`；预设目录为本包 `files/games/pvzce`，建立 mods/resourcepacks/datapacks/config/saves；不使用桌面的 `~/.pvzce` |
 | Fabric 派生 mod loader 的 JAR 与 `fabric.mod.json` | 新增离线 mods JAR 导入；基础格式校验后复制到游戏 mods，不加入 Java classpath；依赖/版本/运行错误仍由游戏加载器报告 |
 | `PvzceResourceManager` 只枚举 resourcepacks/datapacks 中的目录 | 新增 SAF 目录导入：选择直接包含 assets/ 或 data/ 的包目录，不把 ZIP 当成已启用的包 |

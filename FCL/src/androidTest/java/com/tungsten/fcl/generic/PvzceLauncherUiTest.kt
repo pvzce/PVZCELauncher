@@ -14,6 +14,8 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.mio.data.Renderer
+import com.mio.manager.RendererManager
 import com.tungsten.fcl.BuildConfig
 import com.tungsten.fcl.R
 import com.tungsten.fclauncher.utils.FCLPath
@@ -66,6 +68,9 @@ class PvzceLauncherUiTest {
                 assertEquals(PvzceProfile.MAIN_CLASS, activity.findViewById<EditText>(R.id.pvzce_main).text.toString())
                 assertEquals("jre25", activity.findViewById<Spinner>(R.id.pvzce_runtime).selectedItem)
                 assertEquals("3.4.1", activity.findViewById<Spinner>(R.id.pvzce_lwjgl).selectedItem)
+                assertEquals("MobileGlues 2.0.0", activity.findViewById<Spinner>(R.id.pvzce_renderer).selectedItem)
+                assertEquals(Renderer.DEFAULT_ID, GameInstanceStore(activity.filesDir).selected().config["renderer"])
+                assertSame(RendererManager.RENDERER_MOBILEGLUES, RendererManager.getRenderer("missing-renderer"))
                 assertNull(activity.findViewById<View>(R.id.account))
                 assertNull(activity.findViewById<View>(R.id.download_panel))
                 activity.findViewById<View>(R.id.pvzce_green).performClick()
@@ -100,6 +105,23 @@ class PvzceLauncherUiTest {
         }
     }
 
+    @Test fun removedRuntimeAndRendererMigrateToBundledDefaults() {
+        context.getSharedPreferences("generic_launch", Context.MODE_PRIVATE).edit()
+            .putString("runtime", "jre17")
+            .putString("renderer", "f7e985d8-6d4c-f63c-d9f1-06074dab823a")
+            .putString("pvzce", "false").commit()
+        ActivityScenario.launch(GenericLauncherActivity::class.java).use { scenario ->
+            scenario.onActivity { activity ->
+                assertEquals("jre25", activity.findViewById<Spinner>(R.id.pvzce_runtime).selectedItem)
+                assertEquals("MobileGlues 2.0.0", activity.findViewById<Spinner>(R.id.pvzce_renderer).selectedItem)
+                activity.findViewById<View>(R.id.pvzce_save).performClick()
+                val config = GameInstanceStore(activity.filesDir).selected().config
+                assertEquals("jre25", config["runtime"])
+                assertEquals(Renderer.DEFAULT_ID, config["renderer"])
+            }
+        }
+    }
+
     @Test fun advancedConfigurationAndNavigationSurviveRecreation() {
         ActivityScenario.launch(GenericLauncherActivity::class.java).use { scenario ->
             scenario.onActivity { activity ->
@@ -108,7 +130,7 @@ class PvzceLauncherUiTest {
                 activity.findViewById<EditText>(R.id.pvzce_main).setText("example.UserProvidedMain")
                 activity.findViewById<EditText>(R.id.pvzce_args).setText("中文参数\n--example")
                 activity.findViewById<EditText>(R.id.pvzce_classpath).setText("/example/user.jar")
-                activity.findViewById<Spinner>(R.id.pvzce_runtime).setSelection(1)
+                activity.findViewById<Spinner>(R.id.pvzce_runtime).setSelection(0)
                 activity.findViewById<View>(R.id.pvzce_save).performClick()
             }
             scenario.recreate()
@@ -118,7 +140,7 @@ class PvzceLauncherUiTest {
                 assertEquals("example.UserProvidedMain", activity.findViewById<EditText>(R.id.pvzce_main).text.toString())
                 assertEquals("中文参数\n--example", activity.findViewById<EditText>(R.id.pvzce_args).text.toString())
                 assertEquals("/example/user.jar", activity.findViewById<EditText>(R.id.pvzce_classpath).text.toString())
-                assertEquals("jre17", activity.findViewById<Spinner>(R.id.pvzce_runtime).selectedItem)
+                assertEquals("jre25", activity.findViewById<Spinner>(R.id.pvzce_runtime).selectedItem)
                 assertEquals("中文参数\n--example", GameInstanceStore(activity.filesDir).selected().config["args"])
             }
         }

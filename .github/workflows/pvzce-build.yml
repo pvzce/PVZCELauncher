@@ -2,7 +2,10 @@ name: PVZCE Android APK
 
 on:
   push:
-    branches: [dev/pvzl-generic-java-20261014-01, 'dev/pvzl-fcl-ui-*', 'feat/pvzce-workshop-*']
+    branches: [dev/pvzl-generic-java-20261014-01, 'dev/pvzl-fcl-ui-*', 'feat/pvzce-workshop-*', 'feat/mobileglues-*']
+    paths-ignore: ['**/*.md']
+  pull_request:
+    branches: [main]
     paths-ignore: ['**/*.md']
   workflow_dispatch:
 
@@ -61,6 +64,7 @@ jobs:
           bash tools/check_generic_java.sh | tee artifacts/generic-launch-checks.txt
           bash tools/check_audio_compatibility.sh | tee artifacts/audio-compatibility-checks.txt
           python3 tools/audit_generic_launcher.py | tee artifacts/source-audit.txt
+          python3 tools/audit_runtime_bundle.py | tee artifacts/runtime-source-audit.txt
           git diff --check
 
       - name: Test, check style and build both arm64 development APKs
@@ -91,6 +95,7 @@ jobs:
             "$analyzer" manifest print "$apk" > "artifacts/$variant-AndroidManifest.xml"
             "$signer" verify --verbose --print-certs "$apk" > "artifacts/$variant-signature.txt"
             "$aapt" dump badging "$apk" > "artifacts/$variant-badging.txt"
+            python3 tools/audit_runtime_bundle.py "$apk" | tee "artifacts/$variant-runtime-audit.txt"
             cp "$apk" artifacts/
           done
           python3 tools/audit_built_manifests.py \
