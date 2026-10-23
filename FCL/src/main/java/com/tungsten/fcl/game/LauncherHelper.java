@@ -606,7 +606,7 @@ public final class LauncherHelper {
                     if (cleanroomVersion != null && cleanroomVersion.compareTo("0.5.0") >= 0) {
                         return JavaManager.getSuitableJavaVersion(25);
                     } else {
-                        return JavaManager.getJavaFromVersionName("jre21");
+                        return JavaManager.getJavaFromVersionName("jre25");
                     }
                 } else {
                     return JavaManager.getSuitableJavaVersion(version);
@@ -626,7 +626,7 @@ public final class LauncherHelper {
                 if (cleanroomVersion != null && cleanroomVersion.compareTo("0.5.0") >= 0) {
                     suggestedJavaVersion = JavaManager.getSuitableJavaVersion(25);
                 } else {
-                    suggestedJavaVersion = JavaManager.getJavaFromVersionName("jre21");
+                    suggestedJavaVersion = JavaManager.getJavaFromVersionName("jre25");
                 }
             } else {
                 suggestedJavaVersion = JavaManager.getSuitableJavaVersion(version);

@@ -28,12 +28,8 @@ import kotlinx.coroutines.withContext
 class RuntimeFragment : FCLFragment(), View.OnClickListener {
     private lateinit var bind: FragmentRuntimeBinding
     var lwjgl = false
-    var cacio = false
     var cacio17 = false
-    var java8 = false
     var java25 = false
-    var java17 = false
-    var java21 = false
     var jna = false
 
     override fun onCreateView(
@@ -54,11 +50,7 @@ class RuntimeFragment : FCLFragment(), View.OnClickListener {
 
     private fun initState() {
         lwjgl = (activity as SplashActivity).lwjgl
-        cacio = (activity as SplashActivity).cacio
         cacio17 = (activity as SplashActivity).cacio17
-        java8 = (activity as SplashActivity).java8
-        java17 = (activity as SplashActivity).java17
-        java21 = (activity as SplashActivity).java21
         java25 = (activity as SplashActivity).java25
         jna = (activity as SplashActivity).jna
     }
@@ -75,11 +67,7 @@ class RuntimeFragment : FCLFragment(), View.OnClickListener {
 
             bind.apply {
                 lwjglState.setBackgroundDrawable(if (lwjgl) stateDone else stateUpdate)
-                cacioState.setBackgroundDrawable(if (cacio) stateDone else stateUpdate)
                 cacio17State.setBackgroundDrawable(if (cacio17) stateDone else stateUpdate)
-                java8State.setBackgroundDrawable(if (java8) stateDone else stateUpdate)
-                java17State.setBackgroundDrawable(if (java17) stateDone else stateUpdate)
-                java21State.setBackgroundDrawable(if (java21) stateDone else stateUpdate)
                 java25State.setBackgroundDrawable(if (java25) stateDone else stateUpdate)
                 jnaState.setBackgroundDrawable(if (jna) stateDone else stateUpdate)
             }
@@ -87,7 +75,7 @@ class RuntimeFragment : FCLFragment(), View.OnClickListener {
     }
 
     private val isLatest: Boolean
-        get() = lwjgl && cacio && cacio17 && java8 && java25 && java17 && java21 && jna
+        get() = lwjgl && cacio17 && java25 && jna
 
     private fun check() {
         if (isLatest) {
@@ -108,47 +96,12 @@ class RuntimeFragment : FCLFragment(), View.OnClickListener {
                     RuntimeUtils.install(context, FCLPath.LWJGL_DIR, "app_runtime/lwjgl", it)
                 }
             }
-            if (!cacio) {
-                launchInstall(cacioState, cacioProgress, cacioDetail, { cacio = true }) {
-                    RuntimeUtils.install(
-                        context,
-                        FCLPath.CACIOCAVALLO_8_DIR,
-                        "app_runtime/caciocavallo",
-                        it
-                    )
-                }
-            }
             if (!cacio17) {
                 launchInstall(cacio17State, cacio17Progress, cacio17Detail, { cacio17 = true }) {
                     RuntimeUtils.install(
                         context,
                         FCLPath.CACIOCAVALLO_17_DIR,
                         "app_runtime/caciocavallo17",
-                        it
-                    )
-                }
-            }
-            if (!java8) {
-                launchInstall(java8State, java8Progress, java8Detail, { java8 = true }) {
-                    RuntimeUtils.installJava(context, FCLPath.JAVA_8_PATH, "app_runtime/java/jre8", it)
-                }
-            }
-            if (!java17) {
-                launchInstall(java17State, java17Progress, java17Detail, { java17 = true }) {
-                    RuntimeUtils.installJava(
-                        context,
-                        FCLPath.JAVA_17_PATH,
-                        "app_runtime/java/jre17",
-                        it
-                    )
-                }
-            }
-            if (!java21) {
-                launchInstall(java21State, java21Progress, java21Detail, { java21 = true }) {
-                    RuntimeUtils.installJava(
-                        context,
-                        FCLPath.JAVA_21_PATH,
-                        "app_runtime/java/jre21",
                         it
                     )
                 }
@@ -244,7 +197,7 @@ class RuntimeFragment : FCLFragment(), View.OnClickListener {
 
     private fun isJavaArchSupported(arch: String): Boolean {
         try {
-            val javaDirs = listOf("jre8", "jre17", "jre21", "jre25")
+            val javaDirs = listOf("jre25")
             val assetManager = requireContext().assets
             var supportedCount = 0
             for (javaDir in javaDirs) {

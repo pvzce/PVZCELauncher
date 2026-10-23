@@ -93,6 +93,14 @@ public class RuntimeUtils {
 
     @SuppressWarnings("ResultOfMethodCallIgnored")
     public static void installJava(Context context, String targetDir, String srcDir, InstallListener listener) throws IOException {
+        if (!"app_runtime/java/jre25".equals(srcDir)) {
+            throw new IOException("Only bundled Android JRE 25 is supported");
+        }
+        String archive = "bin-" + Architecture.archAsString(Architecture.getDeviceArchitecture()) + ".tar.xz";
+        String[] available = context.getAssets().list(srcDir);
+        if (available == null || !java.util.Arrays.asList(available).contains(archive)) {
+            throw new IOException("Bundled JRE 25 does not support this device architecture");
+        }
         FileUtils.deleteDirectory(new File(targetDir));
         new File(targetDir).mkdirs();
         String universalPath = srcDir + "/universal.tar.xz";

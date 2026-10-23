@@ -342,46 +342,22 @@ public class FCLauncher {
             }
             return;
         }
-        if (renderer.isEqual(Renderer.ID_GL4ES) || renderer.isEqual(Renderer.ID_VGPU)) {
-            envMap.put("LIBGL_ES", "2");
-            envMap.put("LIBGL_MIPMAP", "3");
-            envMap.put("LIBGL_NORMALIZE", "1");
-            envMap.put("LIBGL_NOINTOVLHACK", "1");
-            envMap.put("LIBGL_NOERROR", "1");
-            if (renderer.getId().equals(Renderer.ID_GL4ES)) {
-                envMap.put("POJAV_RENDERER", "opengles2");
-            } else {
-                envMap.put("POJAV_RENDERER", "opengles2_vgpu");
-            }
-        } else if (renderer.isEqual(Renderer.ID_NGGL4ES)) {
-            envMap.put("LIBGL_USE_MC_COLOR", "1");
-            envMap.put("DLOPEN", "libspirv-cross-c-shared.so");
-            envMap.put("LIBGL_GL", "31");
+        envMap.put("MESA_GLSL_CACHE_DIR", config.getContext().getCacheDir().getAbsolutePath());
+        envMap.put("MESA_GL_VERSION_OVERRIDE", renderer.isEqual(Renderer.ID_VIRGL) ? "4.3" : "4.6");
+        envMap.put("MESA_GLSL_VERSION_OVERRIDE", renderer.isEqual(Renderer.ID_VIRGL) ? "430" : "460");
+        envMap.put("force_glsl_extensions_warn", "true");
+        envMap.put("allow_higher_compat_version", "true");
+        envMap.put("allow_glsl_extension_directive_midshader", "true");
+        envMap.put("VTEST_SOCKET_NAME", new File(config.getContext().getCacheDir().getAbsolutePath(), ".virgl_test").getAbsolutePath());
+        if (renderer.isEqual(Renderer.ID_VIRGL)) {
+            envMap.put("POJAV_RENDERER", "gallium_virgl");
+            envMap.put("OSMESA_NO_FLUSH_FRONTBUFFER", "1");
+        } else if (renderer.isEqual(Renderer.ID_ZINK)) {
+            envMap.put("POJAV_RENDERER", "opengles3_desktopgl_zink_kopper");
             envMap.put("LIBGL_ES", "3");
-            envMap.put("LIBGL_NORMALIZE", "1");
-            envMap.put("LIBGL_NOINTOVLHACK", "1");
-            envMap.put("LIBGL_NOERROR", "1");
-            // TODO: set NGG_DIR_PATH to custom path
-            envMap.put("POJAV_RENDERER", "opengles3");
-            envMap.put("POJAVEXEC_EGL", "libEGL.so");
-        } else {
-            envMap.put("MESA_GLSL_CACHE_DIR", config.getContext().getCacheDir().getAbsolutePath());
-            envMap.put("MESA_GL_VERSION_OVERRIDE", renderer.isEqual(Renderer.ID_VIRGL) ? "4.3" : "4.6");
-            envMap.put("MESA_GLSL_VERSION_OVERRIDE", renderer.isEqual(Renderer.ID_VIRGL) ? "430" : "460");
-            envMap.put("force_glsl_extensions_warn", "true");
-            envMap.put("allow_higher_compat_version", "true");
-            envMap.put("allow_glsl_extension_directive_midshader", "true");
-            envMap.put("VTEST_SOCKET_NAME", new File(config.getContext().getCacheDir().getAbsolutePath(), ".virgl_test").getAbsolutePath());
-            if (renderer.isEqual(Renderer.ID_VIRGL)) {
-                envMap.put("POJAV_RENDERER", "gallium_virgl");
-                envMap.put("OSMESA_NO_FLUSH_FRONTBUFFER", "1");
-            } else if (renderer.isEqual(Renderer.ID_ZINK)) {
-                envMap.put("POJAV_RENDERER", "opengles3_desktopgl_zink_kopper");
-                envMap.put("LIBGL_ES", "3");
-                envMap.put("POJAVEXEC_EGL", renderer.getEglName());
-            } else if (renderer.isEqual(Renderer.ID_FREEDRENO)) {
-                envMap.put("POJAV_RENDERER", "gallium_freedreno");
-            }
+            envMap.put("POJAVEXEC_EGL", renderer.getEglName());
+        } else if (renderer.isEqual(Renderer.ID_FREEDRENO)) {
+            envMap.put("POJAV_RENDERER", "gallium_freedreno");
         }
     }
 

@@ -60,24 +60,13 @@ class ProcessService : Service() {
         } catch (e: IOException) {
             Logging.LOG.log(Level.WARNING, "Can't write installer started marker", e)
         }
-        val jre = "jre$java"
+        val jre = "jre25"
         val config = FCLConfig(
             applicationContext,
             FCLPath.LOG_DIR,
             applicationContext.getDir("runtime", 0).absolutePath + "/java/" + jre,
             FCLPath.CACHE_DIR,
-            Renderer(
-                "Holy-GL4ES",
-                "",
-                "libgl4es_114.so",
-                "libEGL.so",
-                "",
-                null,
-                null,
-                Renderer.ID_GL4ES,
-                "",
-                ""
-            ),
+            com.mio.manager.RendererManager.getRenderer(Renderer.ID_VIRGL),
             command ?: emptyArray()
         )
         startProcess(config)

@@ -1,7 +1,6 @@
 package com.mio.minecraft
 
 import android.content.Context
-import com.mio.manager.RendererManager
 import com.mio.plugin.FFmpegPlugin
 import com.mio.plugin.NativeLibPlugin
 import com.mio.util.getElfArchFromZip
@@ -117,21 +116,6 @@ class ModChecker(val context: Context, val version: String) {
                                 mod.file.toFile().name
                             )
                         )
-                }
-
-                "sodium", "embeddium" -> {
-                    if (version.isNotEmpty() && bridge.renderer == RendererManager.RENDERER_GL4ES.name && GameVersionNumber.compare(
-                            version,
-                            "1.17"
-                        ) >= 0
-                    ) {
-                        throw ModCheckException(
-                            context.getString(
-                                R.string.mod_check_sodium,
-                                mod.file.toFile().name
-                            )
-                        )
-                    }
                 }
 
                 "flashback" -> {

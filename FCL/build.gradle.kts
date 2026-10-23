@@ -57,6 +57,10 @@ android {
         versionCode = 1339
         versionName = "1.3.3.9"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // Bundled Android JRE 25 has no 32-bit x86 build.
+        if (System.getProperty("arch", "all") == "all") {
+            ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86_64") }
+        }
         externalNativeBuild {
             cmake {
                 arguments("-DANDROID_STL=c++_shared")
@@ -131,7 +135,6 @@ android {
                 when (arch) {
                     "arm" -> include("armeabi-v7a")
                     "arm64" -> include("arm64-v8a")
-                    "x86" -> include("x86")
                     "x86_64" -> include("x86_64")
                 }
             }
@@ -150,10 +153,15 @@ abstract class FilterJreAssets : Sync() {
 
 val filterJreAssets = tasks.register<FilterJreAssets>("filterJreAssets") {
     val arch = System.getProperty("arch", "all")
+    require(arch in listOf("all", "arm", "arm64", "x86_64")) {
+        "Unsupported JRE 25 architecture: $arch (use arm, arm64, x86_64 or all)"
+    }
     // Copy/Sync 的 up-to-date 检查不包含 copy spec 的过滤规则，必须显式声明 arch 输入，
     // 否则切换架构时任务不会重跑，产物会残留上一架构的 JRE 包
     inputs.property("arch", arch)
-    from(layout.projectDirectory.dir("src/main/jreAssets"))
+    from(layout.projectDirectory.dir("src/main/jreAssets")) {
+        include("app_runtime/java/jre25/**")
+    }
     into(outputDir)
     if (arch != "all") {
         exclude { it.name.startsWith("bin-") && it.name != "bin-$arch.tar.xz" }
@@ -173,11 +181,7 @@ androidComponents {
 
         // JRE 资产不放在 src/main/assets 里（AGP 的 mergeAssets 不应用 source set 的 exclude 过滤），
         // 而是按架构注册为生成源；arch 变化会让 Sync 任务重新执行，mergeAssets 随之重跑，避免产物残留旧架构文件。
-        if (System.getProperty("arch", "all") != "all") {
-            variant.sources.assets?.addGeneratedSourceDirectory(filterJreAssets) { it.outputDir }
-        } else {
-            variant.sources.assets?.addStaticSourceDirectory("src/main/jreAssets")
-        }
+        variant.sources.assets?.addGeneratedSourceDirectory(filterJreAssets) { it.outputDir }
 
         // LWJGL natives 打包在 lwjgl-*-natives aar 的 assets/app_runtime/lwjgl/<版本>/natives/<abi> 下，
         // JNA natives 在 assets/app_runtime/jna/<版本>/natives/<abi> 下，

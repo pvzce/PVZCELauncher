@@ -1,3 +1,5 @@
+> 当前随附资源已精简为 JRE 25 与 VirGL/Zink/Freedreno；本文其余部分是精简前的阅读记录。现状见 [运行组件说明](../PVZCE_RUNTIME_BUNDLE.md)。
+
 # 构建脚本、Manifest、JNI、资源与 assets 概览
 
 范围：FCL 模块的非 Java 源码部分——`FCL/build.gradle.kts`、`src/main/AndroidManifest.xml`、`src/main/jni/`、`src/main/res/`、`src/main/assets/`、根目录构建配置与 `FCL/libs/`。
